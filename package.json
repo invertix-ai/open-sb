@@ -1,0 +1,47 @@
+{
+  "name": "@invertix/sandbox-kit",
+  "version": "0.1.0",
+  "description": "One interface over sandbox and VM providers, with capabilities checked at type-check time, at startup and in CI.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./conformance": "./src/conformance.ts",
+    "./boat": "./src/providers/boat.ts",
+    "./agent37": "./src/providers/agent37.ts",
+    "./docker": "./src/providers/docker.ts"
+  },
+  "bin": {
+    "sandbox-kit": "./bin/sandbox-kit.ts"
+  },
+  "files": [
+    "src",
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "node --test test/*.test.ts",
+    "test:docker": "node --test test/docker.conformance.ts",
+    "test:boat": "node --test test/boat.conformance.ts",
+    "test:agent37": "node --test test/agent37.conformance.ts"
+  },
+  "peerDependencies": {
+    "@boatdev/sdk": ">=1.13.0"
+  },
+  "peerDependenciesMeta": {
+    "@boatdev/sdk": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@boatdev/sdk": "^1.13.0",
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  },
+  "packageManager": "pnpm@10.34.5"
+}

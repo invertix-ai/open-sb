@@ -1,0 +1,42 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      providers:
+        description: "Cloud providers to run the conformance suite against (space separated: boat agent37)"
+        default: ""
+permissions: { contents: read }
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm run check
+      - run: pnpm test
+      - run: pnpm run test:docker
+  cloud-conformance:
+    # Real VMs cost money: only on request.
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.providers != ''
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: { provider: [boat, agent37] }
+    steps:
+      - uses: actions/checkout@v4
+        if: contains(github.event.inputs.providers, matrix.provider)
+      - uses: pnpm/action-setup@v4
+        if: contains(github.event.inputs.providers, matrix.provider)
+      - uses: actions/setup-node@v4
+        if: contains(github.event.inputs.providers, matrix.provider)
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile --ignore-scripts && pnpm run test:${{ matrix.provider }}
+        if: contains(github.event.inputs.providers, matrix.provider)
+        env:
+          BOAT_API_KEY: ${{ secrets.BOAT_API_KEY }}
+          AGENT37_API_KEY: ${{ secrets.AGENT37_API_KEY }}
