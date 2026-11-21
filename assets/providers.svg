@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="480" viewBox="0 0 1000 480" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="738" viewBox="0 0 1000 738" role="img" aria-labelledby="title desc">
   <title id="title">open-sb providers</title>
-  <desc id="desc">One interface, open-sb, connected to Boat, Agent37, Docker and your own provider, with the capabilities each one supports.</desc>
+  <desc id="desc">One interface, open-sb, over E2B, Daytona, Vercel Sandbox, Modal, Boat, Agent37, Docker and your own provider, with the capabilities each one supports.</desc>
   <style>
     .bg { fill: #ffffff; }
     .hub { fill: #111827; }
@@ -35,72 +35,121 @@
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   </style>
 
-  <rect class="bg" width="1000" height="480" rx="20"/>
-
-  <!-- Wires from the interface to each provider -->
+  <rect class="bg" width="1000" height="738" rx="20"/>
   <path class="wire" d="M500 124 C500 170, 140 160, 140 208"/>
   <path class="wire" d="M500 124 C500 170, 380 160, 380 208"/>
   <path class="wire" d="M500 124 C500 170, 620 160, 620 208"/>
   <path class="wire" d="M500 124 C500 170, 860 160, 860 208"/>
-
-  <!-- The interface -->
   <rect class="hub" x="290" y="32" width="420" height="92" rx="18"/>
   <text class="hub-text mono" x="500" y="78" font-size="30" font-weight="700" text-anchor="middle">open-sb</text>
   <text class="hub-muted" x="500" y="106" font-size="13.5" text-anchor="middle">one interface for every sandbox provider</text>
 
-  <!-- Boat: every capability -->
   <g transform="translate(30 208)">
     <rect class="card" width="220" height="222" rx="14"/>
-    <text class="text" x="18" y="38" font-size="22" font-weight="700">Boat</text>
-    <text class="muted" x="18" y="60" font-size="13">Cloud VMs</text>
+    <text class="text" x="18" y="38" font-size="22" font-weight="700">E2B</text>
+    <text class="muted" x="18" y="60" font-size="13">Firecracker microVMs</text>
     <g class="mono" font-size="10.5" text-anchor="middle">
       <rect class="on" x="14" y="80" width="94" height="24" rx="12"/><text class="on-text" x="61" y="96">pause</text>
-      <rect class="on" x="112" y="80" width="94" height="24" rx="12"/><text class="on-text" x="159" y="96">persistentDisk</text>
-      <rect class="on" x="14" y="112" width="94" height="24" rx="12"/><text class="on-text" x="61" y="128">snapshot</text>
-      <rect class="on" x="112" y="112" width="94" height="24" rx="12"/><text class="on-text" x="159" y="128">ttl</text>
-      <rect class="on" x="14" y="144" width="94" height="24" rx="12"/><text class="on-text" x="61" y="160">ports</text>
-      <rect class="on" x="112" y="144" width="94" height="24" rx="12"/><text class="on-text" x="159" y="160">ssh</text>
-      <rect class="on" x="14" y="176" width="94" height="24" rx="12"/><text class="on-text" x="61" y="192">desktop</text>
-      <rect class="on" x="112" y="176" width="94" height="24" rx="12"/><text class="on-text" x="159" y="192">background</text>
+      <rect class="on" x="112" y="80" width="94" height="24" rx="12"/><text class="on-text" x="159" y="96">snapshot</text>
+      <rect class="on" x="14" y="112" width="94" height="24" rx="12"/><text class="on-text" x="61" y="128">ttl</text>
+      <rect class="on" x="112" y="112" width="94" height="24" rx="12"/><text class="on-text" x="159" y="128">ports</text>
+      <rect class="off" x="14" y="144" width="94" height="24" rx="12"/><text class="off-text" x="61" y="160">ssh</text>
+      <rect class="off" x="112" y="144" width="94" height="24" rx="12"/><text class="off-text" x="159" y="160">desktop</text>
+      <rect class="on" x="14" y="176" width="94" height="24" rx="12"/><text class="on-text" x="61" y="192">background</text>
+      <rect class="on" x="112" y="176" width="94" height="24" rx="12"/><text class="on-text" x="159" y="192">persistentDisk</text>
     </g>
   </g>
-
-  <!-- Agent37 -->
   <g transform="translate(270 208)">
     <rect class="card" width="220" height="222" rx="14"/>
-    <text class="text" x="18" y="38" font-size="22" font-weight="700">Agent37</text>
-    <text class="muted" x="18" y="60" font-size="13">Cloud VMs that sleep when idle</text>
+    <text class="text" x="18" y="38" font-size="22" font-weight="700">Daytona</text>
+    <text class="muted" x="18" y="60" font-size="13">Fast dev sandboxes</text>
     <g class="mono" font-size="10.5" text-anchor="middle">
       <rect class="on" x="14" y="80" width="94" height="24" rx="12"/><text class="on-text" x="61" y="96">pause</text>
-      <rect class="on" x="112" y="80" width="94" height="24" rx="12"/><text class="on-text" x="159" y="96">persistentDisk</text>
-      <rect class="off" x="14" y="112" width="94" height="24" rx="12"/><text class="off-text" x="61" y="128">snapshot</text>
-      <rect class="off" x="112" y="112" width="94" height="24" rx="12"/><text class="off-text" x="159" y="128">ttl</text>
-      <rect class="on" x="14" y="144" width="94" height="24" rx="12"/><text class="on-text" x="61" y="160">ports</text>
-      <rect class="off" x="112" y="144" width="94" height="24" rx="12"/><text class="off-text" x="159" y="160">ssh</text>
-      <rect class="off" x="14" y="176" width="94" height="24" rx="12"/><text class="off-text" x="61" y="192">desktop</text>
-      <rect class="on" x="112" y="176" width="94" height="24" rx="12"/><text class="on-text" x="159" y="192">background</text>
+      <rect class="on" x="112" y="80" width="94" height="24" rx="12"/><text class="on-text" x="159" y="96">snapshot</text>
+      <rect class="off" x="14" y="112" width="94" height="24" rx="12"/><text class="off-text" x="61" y="128">ttl</text>
+      <rect class="on" x="112" y="112" width="94" height="24" rx="12"/><text class="on-text" x="159" y="128">ports</text>
+      <rect class="off" x="14" y="144" width="94" height="24" rx="12"/><text class="off-text" x="61" y="160">ssh</text>
+      <rect class="off" x="112" y="144" width="94" height="24" rx="12"/><text class="off-text" x="159" y="160">desktop</text>
+      <rect class="on" x="14" y="176" width="94" height="24" rx="12"/><text class="on-text" x="61" y="192">background</text>
+      <rect class="on" x="112" y="176" width="94" height="24" rx="12"/><text class="on-text" x="159" y="192">persistentDisk</text>
     </g>
   </g>
-
-  <!-- Docker -->
   <g transform="translate(510 208)">
+    <rect class="card" width="220" height="222" rx="14"/>
+    <text class="text" x="18" y="38" font-size="22" font-weight="700">Vercel Sandbox</text>
+    <text class="muted" x="18" y="60" font-size="13">Ephemeral microVMs</text>
+    <g class="mono" font-size="10.5" text-anchor="middle">
+      <rect class="on" x="14" y="80" width="94" height="24" rx="12"/><text class="on-text" x="61" y="96">pause</text>
+      <rect class="off" x="112" y="80" width="94" height="24" rx="12"/><text class="off-text" x="159" y="96">snapshot</text>
+      <rect class="on" x="14" y="112" width="94" height="24" rx="12"/><text class="on-text" x="61" y="128">ttl</text>
+      <rect class="on" x="112" y="112" width="94" height="24" rx="12"/><text class="on-text" x="159" y="128">ports</text>
+      <rect class="off" x="14" y="144" width="94" height="24" rx="12"/><text class="off-text" x="61" y="160">ssh</text>
+      <rect class="off" x="112" y="144" width="94" height="24" rx="12"/><text class="off-text" x="159" y="160">desktop</text>
+      <rect class="on" x="14" y="176" width="94" height="24" rx="12"/><text class="on-text" x="61" y="192">background</text>
+      <rect class="on" x="112" y="176" width="94" height="24" rx="12"/><text class="on-text" x="159" y="192">persistentDisk</text>
+    </g>
+  </g>
+  <g transform="translate(750 208)">
+    <rect class="card" width="220" height="222" rx="14"/>
+    <text class="text" x="18" y="38" font-size="22" font-weight="700">Modal</text>
+    <text class="muted" x="18" y="60" font-size="13">Serverless containers</text>
+    <g class="mono" font-size="10.5" text-anchor="middle">
+      <rect class="off" x="14" y="80" width="94" height="24" rx="12"/><text class="off-text" x="61" y="96">pause</text>
+      <rect class="on" x="112" y="80" width="94" height="24" rx="12"/><text class="on-text" x="159" y="96">snapshot</text>
+      <rect class="off" x="14" y="112" width="94" height="24" rx="12"/><text class="off-text" x="61" y="128">ttl</text>
+      <rect class="on" x="112" y="112" width="94" height="24" rx="12"/><text class="on-text" x="159" y="128">ports</text>
+      <rect class="off" x="14" y="144" width="94" height="24" rx="12"/><text class="off-text" x="61" y="160">ssh</text>
+      <rect class="off" x="112" y="144" width="94" height="24" rx="12"/><text class="off-text" x="159" y="160">desktop</text>
+      <rect class="on" x="14" y="176" width="94" height="24" rx="12"/><text class="on-text" x="61" y="192">background</text>
+      <rect class="off" x="112" y="176" width="94" height="24" rx="12"/><text class="off-text" x="159" y="192">persistentDisk</text>
+    </g>
+  </g>
+  <g transform="translate(30 458)">
+    <rect class="card" width="220" height="222" rx="14"/>
+    <text class="text" x="18" y="38" font-size="22" font-weight="700">Boat</text>
+    <text class="muted" x="18" y="60" font-size="13">Full cloud VMs</text>
+    <g class="mono" font-size="10.5" text-anchor="middle">
+      <rect class="on" x="14" y="80" width="94" height="24" rx="12"/><text class="on-text" x="61" y="96">pause</text>
+      <rect class="on" x="112" y="80" width="94" height="24" rx="12"/><text class="on-text" x="159" y="96">snapshot</text>
+      <rect class="on" x="14" y="112" width="94" height="24" rx="12"/><text class="on-text" x="61" y="128">ttl</text>
+      <rect class="on" x="112" y="112" width="94" height="24" rx="12"/><text class="on-text" x="159" y="128">ports</text>
+      <rect class="on" x="14" y="144" width="94" height="24" rx="12"/><text class="on-text" x="61" y="160">ssh</text>
+      <rect class="on" x="112" y="144" width="94" height="24" rx="12"/><text class="on-text" x="159" y="160">desktop</text>
+      <rect class="on" x="14" y="176" width="94" height="24" rx="12"/><text class="on-text" x="61" y="192">background</text>
+      <rect class="on" x="112" y="176" width="94" height="24" rx="12"/><text class="on-text" x="159" y="192">persistentDisk</text>
+    </g>
+  </g>
+  <g transform="translate(270 458)">
+    <rect class="card" width="220" height="222" rx="14"/>
+    <text class="text" x="18" y="38" font-size="22" font-weight="700">Agent37</text>
+    <text class="muted" x="18" y="60" font-size="13">VMs that sleep when idle</text>
+    <g class="mono" font-size="10.5" text-anchor="middle">
+      <rect class="on" x="14" y="80" width="94" height="24" rx="12"/><text class="on-text" x="61" y="96">pause</text>
+      <rect class="off" x="112" y="80" width="94" height="24" rx="12"/><text class="off-text" x="159" y="96">snapshot</text>
+      <rect class="off" x="14" y="112" width="94" height="24" rx="12"/><text class="off-text" x="61" y="128">ttl</text>
+      <rect class="on" x="112" y="112" width="94" height="24" rx="12"/><text class="on-text" x="159" y="128">ports</text>
+      <rect class="off" x="14" y="144" width="94" height="24" rx="12"/><text class="off-text" x="61" y="160">ssh</text>
+      <rect class="off" x="112" y="144" width="94" height="24" rx="12"/><text class="off-text" x="159" y="160">desktop</text>
+      <rect class="on" x="14" y="176" width="94" height="24" rx="12"/><text class="on-text" x="61" y="192">background</text>
+      <rect class="on" x="112" y="176" width="94" height="24" rx="12"/><text class="on-text" x="159" y="192">persistentDisk</text>
+    </g>
+  </g>
+  <g transform="translate(510 458)">
     <rect class="card" width="220" height="222" rx="14"/>
     <text class="text" x="18" y="38" font-size="22" font-weight="700">Docker</text>
     <text class="muted" x="18" y="60" font-size="13">Containers on your machine</text>
     <g class="mono" font-size="10.5" text-anchor="middle">
       <rect class="on" x="14" y="80" width="94" height="24" rx="12"/><text class="on-text" x="61" y="96">pause</text>
-      <rect class="on" x="112" y="80" width="94" height="24" rx="12"/><text class="on-text" x="159" y="96">persistentDisk</text>
-      <rect class="on" x="14" y="112" width="94" height="24" rx="12"/><text class="on-text" x="61" y="128">snapshot</text>
-      <rect class="off" x="112" y="112" width="94" height="24" rx="12"/><text class="off-text" x="159" y="128">ttl</text>
-      <rect class="off" x="14" y="144" width="94" height="24" rx="12"/><text class="off-text" x="61" y="160">ports</text>
-      <rect class="off" x="112" y="144" width="94" height="24" rx="12"/><text class="off-text" x="159" y="160">ssh</text>
-      <rect class="off" x="14" y="176" width="94" height="24" rx="12"/><text class="off-text" x="61" y="192">desktop</text>
-      <rect class="on" x="112" y="176" width="94" height="24" rx="12"/><text class="on-text" x="159" y="192">background</text>
+      <rect class="on" x="112" y="80" width="94" height="24" rx="12"/><text class="on-text" x="159" y="96">snapshot</text>
+      <rect class="off" x="14" y="112" width="94" height="24" rx="12"/><text class="off-text" x="61" y="128">ttl</text>
+      <rect class="off" x="112" y="112" width="94" height="24" rx="12"/><text class="off-text" x="159" y="128">ports</text>
+      <rect class="off" x="14" y="144" width="94" height="24" rx="12"/><text class="off-text" x="61" y="160">ssh</text>
+      <rect class="off" x="112" y="144" width="94" height="24" rx="12"/><text class="off-text" x="159" y="160">desktop</text>
+      <rect class="on" x="14" y="176" width="94" height="24" rx="12"/><text class="on-text" x="61" y="192">background</text>
+      <rect class="on" x="112" y="176" width="94" height="24" rx="12"/><text class="on-text" x="159" y="192">persistentDisk</text>
     </g>
   </g>
-
-  <!-- Your provider -->
-  <g transform="translate(750 208)">
+  <g transform="translate(750 458)">
     <rect class="card-new" width="220" height="222" rx="14"/>
     <text class="text" x="18" y="38" font-size="22" font-weight="700">Your provider</text>
     <text class="muted" x="18" y="60" font-size="13">Any sandbox with an API</text>
@@ -113,8 +162,7 @@
     <text class="muted" x="18" y="204" font-size="12">Passes the suite, joins the list</text>
   </g>
 
-  <!-- Legend -->
-  <g transform="translate(30 452)" font-size="12.5">
+  <g transform="translate(30 710)" font-size="12.5">
     <rect class="on" width="26" height="14" rx="7"/>
     <text class="muted" x="34" y="11.5">supported</text>
     <rect class="off" x="112" width="26" height="14" rx="7"/>
