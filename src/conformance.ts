@@ -46,7 +46,7 @@ function sshPublicKey(): string {
   const { publicKey } = generateKeyPairSync("ed25519");
   const raw = Buffer.from(publicKey.export({ format: "jwk" }).x!, "base64url");
   const field = (bytes: Buffer) => Buffer.concat([Buffer.from([0, 0, 0, bytes.length]), bytes]);
-  return `ssh-ed25519 ${Buffer.concat([field(Buffer.from("ssh-ed25519")), field(raw)]).toString("base64")} sandbox-kit-conformance`;
+  return `ssh-ed25519 ${Buffer.concat([field(Buffer.from("ssh-ed25519")), field(raw)]).toString("base64")} open-sb-conformance`;
 }
 
 /** Registers the conformance tests for one provider with `node:test`. */
@@ -54,14 +54,14 @@ export function conformance(provider: AnyProvider, options: ConformanceOptions =
   const waitMs = options.waitMs ?? 300_000;
   const declared = new Set(provider.capabilities);
   const run = (capability: Capability) => declared.has(capability) && (!options.only || options.only.includes(capability));
-  const labels = { "sandbox-kit.conformance": randomUUID() };
+  const labels = { "open-sb.conformance": randomUUID() };
   const created: string[] = [];
   let id = "";
   /** Methods of declared capabilities, reached without casts at every call site. */
   const call = provider as AnyProvider & Record<string, (...args: never[]) => Promise<unknown>>;
   const method = <T>(name: string) => call[name] as unknown as T;
 
-  describe(`sandbox-kit conformance: ${provider.name}`, { timeout: waitMs * 6 }, () => {
+  describe(`open-sb conformance: ${provider.name}`, { timeout: waitMs * 6 }, () => {
     before(async () => {
       const report = checkProvider(provider, []);
       assert.deepEqual(report.broken, [], `${provider.name} declares capabilities it does not implement`);
@@ -78,10 +78,10 @@ export function conformance(provider: AnyProvider, options: ConformanceOptions =
     test("get and list find the sandbox by its labels", async () => {
       const info = await provider.get(id);
       assert.equal(info?.id, id);
-      assert.equal(info?.labels["sandbox-kit.conformance"], labels["sandbox-kit.conformance"]);
+      assert.equal(info?.labels["open-sb.conformance"], labels["open-sb.conformance"]);
       const listed = await provider.list({ labels });
       assert.ok(listed.some(sandbox => sandbox.id === id), "list({ labels }) must include the sandbox");
-      assert.ok(listed.every(sandbox => sandbox.labels["sandbox-kit.conformance"] === labels["sandbox-kit.conformance"]),
+      assert.ok(listed.every(sandbox => sandbox.labels["open-sb.conformance"] === labels["open-sb.conformance"]),
         "list({ labels }) must only return matching sandboxes");
     });
 
@@ -91,23 +91,23 @@ export function conformance(provider: AnyProvider, options: ConformanceOptions =
       assert.equal(hello.stdout.trim(), "hello");
       assert.equal((await provider.exec(id, "exit 3")).exitCode, 3);
       assert.equal((await provider.exec(id, 'printf %s "$GREETING"', { env: { GREETING: "it's ok" } })).stdout, "it's ok");
-      await provider.exec(id, "mkdir -p /tmp/sandbox-kit-cwd");
-      assert.equal((await provider.exec(id, "pwd", { cwd: "/tmp/sandbox-kit-cwd" })).stdout.trim().endsWith("/tmp/sandbox-kit-cwd"), true);
+      await provider.exec(id, "mkdir -p /tmp/open-sb-cwd");
+      assert.equal((await provider.exec(id, "pwd", { cwd: "/tmp/open-sb-cwd" })).stdout.trim().endsWith("/tmp/open-sb-cwd"), true);
     });
 
     test("files round-trip, including binary data", async () => {
       const bytes = new Uint8Array(256).map((_, index) => index);
-      await provider.writeFile(id, "/tmp/sandbox-kit/binary.bin", bytes);
-      assert.deepEqual(await provider.readFile(id, "/tmp/sandbox-kit/binary.bin"), bytes);
-      await provider.writeFile(id, "/tmp/sandbox-kit/text.txt", "héllo\n");
-      assert.equal(Buffer.from(await provider.readFile(id, "/tmp/sandbox-kit/text.txt")).toString(), "héllo\n");
-      assert.equal((await provider.exec(id, "cat /tmp/sandbox-kit/text.txt")).stdout, "héllo\n", "files written must be visible to exec");
+      await provider.writeFile(id, "/tmp/open-sb/binary.bin", bytes);
+      assert.deepEqual(await provider.readFile(id, "/tmp/open-sb/binary.bin"), bytes);
+      await provider.writeFile(id, "/tmp/open-sb/text.txt", "héllo\n");
+      assert.equal(Buffer.from(await provider.readFile(id, "/tmp/open-sb/text.txt")).toString(), "héllo\n");
+      assert.equal((await provider.exec(id, "cat /tmp/open-sb/text.txt")).stdout, "héllo\n", "files written must be visible to exec");
     });
 
     test("background processes keep running after the call returns", { skip: !run("background") }, async () => {
-      await method<(id: string, command: string) => Promise<void>>("startBackground")(id, "sleep 2; echo done > /tmp/sandbox-kit-background");
+      await method<(id: string, command: string) => Promise<void>>("startBackground")(id, "sleep 2; echo done > /tmp/open-sb-background");
       await until("the background process", 60_000, async () => {
-        const result = await provider.exec(id, "cat /tmp/sandbox-kit-background");
+        const result = await provider.exec(id, "cat /tmp/open-sb-background");
         return result.exitCode === 0 && result.stdout.trim() === "done" ? true : undefined;
       });
     });
@@ -116,16 +116,16 @@ export function conformance(provider: AnyProvider, options: ConformanceOptions =
       const port = options.port ?? 8765;
       const portUrl = method<(id: string, port: number) => Promise<{ url: string; headers?: Record<string, string> }>>("portUrl");
       if (declared.has("background")) {
-        await provider.writeFile(id, "/tmp/sandbox-kit-www/index.html", "sandbox-kit");
+        await provider.writeFile(id, "/tmp/open-sb-www/index.html", "open-sb");
         await method<(id: string, command: string, options: { cwd: string }) => Promise<void>>("startBackground")(
-          id, `python3 -m http.server ${port} --bind 0.0.0.0`, { cwd: "/tmp/sandbox-kit-www" });
+          id, `python3 -m http.server ${port} --bind 0.0.0.0`, { cwd: "/tmp/open-sb-www" });
       }
       const { url, headers } = await portUrl(id, port);
       assert.equal(new URL(url).protocol, "https:");
       if (declared.has("background"))
         await until("the port to serve", 120_000, async () => {
           const response = await fetch(url, { headers, redirect: "manual", signal: AbortSignal.timeout(20_000) });
-          return response.ok && (await response.text()).includes("sandbox-kit") ? true : undefined;
+          return response.ok && (await response.text()).includes("open-sb") ? true : undefined;
         });
     });
 
@@ -157,15 +157,15 @@ export function conformance(provider: AnyProvider, options: ConformanceOptions =
     });
 
     test("snapshots create new sandboxes with the saved files", { skip: !run("snapshot") }, async () => {
-      const name = `sandbox-kit-${randomUUID().slice(0, 8)}`;
-      await provider.writeFile(id, "/tmp/sandbox-kit/snapshot.txt", name);
+      const name = `open-sb-${randomUUID().slice(0, 8)}`;
+      await provider.writeFile(id, "/tmp/open-sb/snapshot.txt", name);
       await method<(id: string, name: string) => Promise<void>>("snapshot")(id, name);
       try {
         assert.ok((await method<() => Promise<string[]>>("listSnapshots")()).includes(name));
         const copy = await provider.create({ image: name, labels });
         created.push(copy.id);
         await waitFor(provider, copy.id, "running", waitMs);
-        assert.equal(Buffer.from(await provider.readFile(copy.id, "/tmp/sandbox-kit/snapshot.txt")).toString(), name);
+        assert.equal(Buffer.from(await provider.readFile(copy.id, "/tmp/open-sb/snapshot.txt")).toString(), name);
         await provider.destroy(copy.id);
       } finally {
         await method<(name: string) => Promise<void>>("deleteSnapshot")(name);
@@ -175,14 +175,14 @@ export function conformance(provider: AnyProvider, options: ConformanceOptions =
 
     test("pause and resume", { skip: !run("pause") }, async () => {
       // Under $HOME rather than /tmp: some providers clear /tmp on boot.
-      if (declared.has("persistentDisk")) await provider.exec(id, 'printf kept > "$HOME/sandbox-kit-persist.txt"');
+      if (declared.has("persistentDisk")) await provider.exec(id, 'printf kept > "$HOME/open-sb-persist.txt"');
       await method<(id: string) => Promise<void>>("pause")(id);
       await waitFor(provider, id, "stopped", waitMs);
       await method<(id: string) => Promise<void>>("resume")(id);
       await waitFor(provider, id, "running", waitMs);
       await until("exec after resume", waitMs, async () => (await provider.exec(id, "true")).exitCode === 0 ? true : undefined);
       if (run("persistentDisk"))
-        assert.equal((await provider.exec(id, 'cat "$HOME/sandbox-kit-persist.txt"')).stdout, "kept", "files must survive pause and resume");
+        assert.equal((await provider.exec(id, 'cat "$HOME/open-sb-persist.txt"')).stdout, "kept", "files must survive pause and resume");
     });
 
     test("destroy removes the sandbox", async () => {

@@ -1,6 +1,6 @@
 // The config file: which capabilities the application needs, and the providers to use in fallback order.
 // Compatibility is checked three times: by the type checker (`defineConfig`), at startup (`assertCompatible`)
-// and in CI against real sandboxes (`sandbox-kit/conformance`).
+// and in CI against real sandboxes (`open-sb/conformance`).
 import {
   CAPABILITIES, CAPABILITY_METHODS, CAPABILITY_REQUIRES, CORE_METHODS,
   type AnyProvider, type CapabilitiesOf, type Capability, type Provider,

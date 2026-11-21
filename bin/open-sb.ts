@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// `sandbox-kit check [config]`: loads the config file and fails unless every provider implements every
+// `open-sb check [config]`: loads the config file and fails unless every provider implements every
 // required capability. Prints a capability matrix. Default config: ./sandbox.config.ts (or .js/.mjs).
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -8,7 +8,7 @@ import { CAPABILITIES, checkConfig, type Config } from "../src/index.ts";
 
 const [command = "check", file] = process.argv.slice(2);
 if (command !== "check" || file === "--help") {
-  console.log("Usage: sandbox-kit check [config file]");
+  console.log("Usage: open-sb check [config file]");
   process.exit(command === "help" || file === "--help" ? 0 : 2);
 }
 const path = file ?? ["sandbox.config.ts", "sandbox.config.mjs", "sandbox.config.js"].find(candidate => existsSync(candidate));

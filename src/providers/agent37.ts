@@ -97,9 +97,9 @@ export function agent37(options: Agent37Options) {
       if (createOptions.image && createOptions.image !== (options.template ?? "agent37-hermes"))
         throw new SandboxError("rejected", name, { code: "image_not_supported" });
       // Agent37 has no idempotency key: a retried create looks for an instance carrying the same key first.
-      const labels = { ...createOptions.labels, ...(createOptions.idempotencyKey ? { "sandbox-kit.idempotency-key": createOptions.idempotencyKey } : {}) };
+      const labels = { ...createOptions.labels, ...(createOptions.idempotencyKey ? { "open-sb.idempotency-key": createOptions.idempotencyKey } : {}) };
       if (createOptions.idempotencyKey) {
-        const existing = (await list({ labels: { "sandbox-kit.idempotency-key": createOptions.idempotencyKey }, signal: createOptions.signal }))
+        const existing = (await list({ labels: { "open-sb.idempotency-key": createOptions.idempotencyKey }, signal: createOptions.signal }))
           .find(sandbox => sandbox.state !== "gone");
         if (existing) return existing;
       }
@@ -140,7 +140,7 @@ export function agent37(options: Agent37Options) {
 
     async writeFile(id, path, data, callOptions = {}) {
       const encoded = Buffer.from(typeof data === "string" ? Buffer.from(data) : data).toString("base64");
-      const temporary = `${path}.sandbox-kit-${Date.now()}`;
+      const temporary = `${path}.open-sb-${Date.now()}`;
       const steps = [`mkdir -p -- "$(dirname -- ${quote(path)})" && : > ${quote(temporary)}`];
       for (let offset = 0; offset < encoded.length; offset += CHUNK)
         steps.push(`printf %s ${quote(encoded.slice(offset, offset + CHUNK))} >> ${quote(temporary)}`);

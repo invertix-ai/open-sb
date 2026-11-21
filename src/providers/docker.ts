@@ -15,9 +15,9 @@ export interface DockerOptions {
   binary?: string;
 }
 
-const SNAPSHOTS = "sandbox-kit-snapshot";
-const KEY = "sandbox-kit.idempotency-key";
-const MANAGED = "sandbox-kit.managed";
+const SNAPSHOTS = "open-sb-snapshot";
+const KEY = "open-sb.idempotency-key";
+const MANAGED = "open-sb.managed";
 const STATES: Record<string, SandboxState> = {
   created: "starting", restarting: "starting", running: "running", paused: "stopped", exited: "stopped", removing: "gone", dead: "gone",
 };

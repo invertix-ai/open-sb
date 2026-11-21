@@ -1,5 +1,5 @@
 {
-  "name": "@invertix/sandbox-kit",
+  "name": "@invertix/open-sb",
   "version": "0.1.0",
   "description": "One interface over sandbox and VM providers, with capabilities checked at type-check time, at startup and in CI.",
   "license": "MIT",
@@ -15,7 +15,7 @@
     "./docker": "./src/providers/docker.ts"
   },
   "bin": {
-    "sandbox-kit": "./bin/sandbox-kit.ts"
+    "open-sb": "./bin/open-sb.ts"
   },
   "files": [
     "src",
