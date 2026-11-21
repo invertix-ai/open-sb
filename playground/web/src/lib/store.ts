@@ -3,7 +3,7 @@
 // Views are mutated in place and components re-render on a version number, batched to one per frame.
 import { useSyncExternalStore } from "react";
 import { api, post } from "./api";
-import type { Backend, ModelInfo, Overview, PlaygroundEvent, ProviderRun, RunSummary, TestId, View } from "./types";
+import type { Backend, DesktopConnection, ModelInfo, Overview, PlaygroundEvent, ProviderRun, RunSummary, TestId, View } from "./types";
 
 const stored = <T>(key: string, fallback: T): T => {
   try { return (JSON.parse(localStorage.getItem(key) ?? "null") as T) ?? fallback; } catch { return fallback; }
@@ -12,6 +12,7 @@ const stored = <T>(key: string, fallback: T): T => {
 export interface Options {
   speed: { rounds: number; fileMiB: number; pause: boolean };
   stream: { durationS: number; intervalMs: number; pollMs: number };
+  desktop: { durationS: number; demo: boolean };
   agent: { model: string; effort: string; tasks: string[] | null; maxTurns: number; timeLimitMin: number };
   load: { n: number };
   workloads: { sections: string[]; sizes: number[]; forks: number };
@@ -21,6 +22,7 @@ export interface Options {
 const DEFAULT_OPTIONS: Options = {
   speed: { rounds: 10, fileMiB: 1, pause: true },
   stream: { durationS: 15, intervalMs: 200, pollMs: 400 },
+  desktop: { durationS: 600, demo: true },
   agent: { model: "claude-opus-5-5", effort: "medium", tasks: null, maxTurns: 25, timeLimitMin: 10 },
   load: { n: 5 },
   workloads: { sections: ["files", "persistence", "fork", "isolation"], sizes: [1, 10, 50], forks: 3 },
@@ -30,6 +32,7 @@ const DEFAULT_OPTIONS: Options = {
 export const TESTS: { id: TestId; label: string; blurb: string }[] = [
   { id: "speed", label: "Speed", blurb: "Create, exec, file transfer, pause, resume and destroy timings." },
   { id: "stream", label: "Live stream", blurb: "A background process writes a line every interval; see how fast lines arrive." },
+  { id: "desktop", label: "Desktop", blurb: "Watch a real sandbox desktop, or enable control to use its mouse and keyboard." },
   { id: "agent", label: "Agent", blurb: "A Claude or OpenAI agent works through real tasks inside each sandbox, live on screen." },
   { id: "load", label: "Load", blurb: "Many sandboxes at once: success rate, errors and latency spread." },
   { id: "workloads", label: "Workloads", blurb: "What agents rely on, without a model: big files, pause and resume, forks from a snapshot, isolation." },
@@ -142,7 +145,7 @@ class Store {
   openSetup(module: string | null) { this.setupModule = module; this.notify(); }
 
   async start(test: TestId) {
-    const providers = this.selectedAvailable();
+    const providers = this.selectedAvailable().filter(module => test !== "desktop" || this.provider(module)?.capabilities.includes("desktop"));
     const options = { ...this.options[test] } as Record<string, unknown>;
     if (test === "agent" && !options.tasks) options.tasks = defaultTasks(this.overview);
     const { runId } = await post<{ runId: string }>("/api/runs", { test, providers, options });
@@ -152,6 +155,18 @@ class Store {
   async cancel(test: TestId) {
     const view = this.views[test];
     if (view) await post(`/api/runs/${encodeURIComponent(view.runId)}/cancel`);
+  }
+
+  async reconnectDesktop(test: TestId, module: string) {
+    const view = this.views[test];
+    const desktop = view?.p[module]?.desktop;
+    if (!view || !desktop || view.status !== "running") return;
+    const connection = await post<DesktopConnection>(`/api/runs/${encodeURIComponent(view.runId)}/desktop`, { provider: module, sandboxId: desktop.sandboxId });
+    // Do not let a late response overwrite a newer run or task's connection.
+    if (this.views[test] === view && view.p[module]?.desktop?.sandboxId === desktop.sandboxId) {
+      view.p[module]!.desktop = { ...desktop, ...connection };
+      this.notify();
+    }
   }
 
   /** Shows a run in its tab and streams its events (all of them, replayed from the start). */
@@ -203,7 +218,7 @@ class Store {
           p.lines.push(...event.lines);
           if (p.lines.length > 2000) p.lines.splice(0, p.lines.length - 2000);
         } else if (event.kind === "link") p.link = { url: event.url, port: event.port, task: event.task };
-        else if (event.kind === "desktop") p.desktop = { url: event.url, task: event.task };
+        else if (event.kind === "desktop") p.desktop = { url: event.url, websocketUrl: event.websocketUrl, expiresAt: event.expiresAt, sandboxId: event.sandboxId, task: event.task };
         break;
       case "agent":
         if (!p) break;

@@ -31,10 +31,10 @@ export function winnerOf(values: { module: string; value: number | undefined | n
   return finite.reduce((best, entry) => ((better === "higher" ? entry.value! > best.value! : entry.value! < best.value!) ? entry : best)).module;
 }
 
-export function NumberInput({ value, min, max, step = 1, onChange, suffix }: { value: number; min: number; max: number; step?: number; onChange: (value: number) => void; suffix?: string }) {
+export function NumberInput({ value, min, max, step = 1, onChange, suffix, label }: { value: number; min: number; max: number; step?: number; onChange: (value: number) => void; suffix?: string; label?: string }) {
   return (
     <div className="relative">
-      <Input type="number" className={cn("tabular w-28", suffix && "pr-10")} value={value} min={min} max={max} step={step}
+      <Input type="number" aria-label={label} className={cn("tabular w-28", suffix && "pr-10")} value={value} min={min} max={max} step={step}
         onChange={event => { if (event.target.value !== "") onChange(Math.min(max, Math.max(min, Number(event.target.value)))); }} />
       {suffix && <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">{suffix}</span>}
     </div>

@@ -81,9 +81,19 @@ export interface Ssh {
   ssh(id: string, publicKey: string, options?: CallOptions): Promise<{ host: string; port: number; user: string; hostKey?: string }>;
 }
 
-/** A graphical desktop a person can watch, as a (secret) viewer URL. */
+/** Access to a graphical desktop. These URLs are credentials: do not log or persist them. */
+export interface DesktopConnection {
+  /** A complete browser viewer, for embedding or opening in a new tab. */
+  url: string;
+  /** Optional RFB-over-WebSocket endpoint for a native noVNC viewer. */
+  websocketUrl?: string;
+  /** When access expires. Call `desktop` again to reconnect with fresh credentials. */
+  expiresAt?: Date;
+}
+
+/** Starts a graphical desktop when needed and returns viewer access. */
 export interface Desktop {
-  desktop(id: string, options?: CallOptions): Promise<{ url: string } | { provisioning: true }>;
+  desktop(id: string, options?: CallOptions): Promise<DesktopConnection | { provisioning: true }>;
 }
 
 /** A process that keeps running after the call returns, until the sandbox stops. */

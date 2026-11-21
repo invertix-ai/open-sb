@@ -2,7 +2,8 @@
 // taken from a running sandbox, and private preview URLs for ports. Uses the official `@daytonaio/sdk` (a peer
 // dependency). On Daytona, `ttl` expiry DELETES the sandbox and its disk (Daytona's wall-clock TTL, counted even
 // while stopped), it does not stop it; `expiresAt` is Daytona's `autoDestroyAt`. Limits: no SSH with a caller's
-// key (Daytona hands out its own access tokens instead) and no desktop here. Daytona's SDK takes no AbortSignal:
+// key (Daytona hands out its own access tokens instead). Desktop access starts Computer Use and signs the
+// noVNC port; default snapshots include the desktop stack, custom images must install it. The SDK takes no AbortSignal:
 // an abort or timeout stops waiting, while the request itself runs to completion at Daytona.
 import { createHash, randomUUID } from "node:crypto";
 import {
@@ -28,6 +29,10 @@ export interface DaytonaSandbox {
   createSnapshot(name: string, timeout?: number): Promise<void>;
   setTtl(ttlMinutes: number): Promise<void>;
   getPreviewLink(port: number): Promise<{ url: string; token?: string }>;
+  getSignedPreviewUrl(port: number, expiresInSeconds?: number): Promise<{ url: string }>;
+  computerUse: {
+    start(): Promise<unknown>;
+  };
   fs: {
     createFolder(path: string, mode: string): Promise<void>;
     uploadFile(file: Buffer, remotePath: string, timeout?: number): Promise<void>;
@@ -66,6 +71,8 @@ export interface DaytonaOptions {
   image?: string;
   /** Idle minutes before Daytona stops a sandbox on its own (0 disables). Default: Daytona's, 15 minutes. */
   autoStopInterval?: number;
+  /** Lifetime of each desktop viewer credential, in seconds (60–86400). Default: 3600. */
+  desktopExpiresInSeconds?: number;
   /** A configured client; replaces `apiKey`, `apiUrl` and `target`. */
   client?: DaytonaClient;
   name?: string;
@@ -93,6 +100,9 @@ function script(command: string, options: ExecOptions) {
 
 export function daytona(options: DaytonaOptions = {}) {
   const name = options.name ?? "daytona";
+  const desktopTtl = options.desktopExpiresInSeconds ?? 3600;
+  if (!Number.isInteger(desktopTtl) || desktopTtl < 60 || desktopTtl > 86400)
+    throw new Error("desktopExpiresInSeconds must be an integer from 60 to 86400");
   let sdk = options.client;
   const client = () => sdk ??= new Daytona({ apiKey: options.apiKey, apiUrl: options.apiUrl, target: options.target }) satisfies DaytonaClient;
 
@@ -173,7 +183,7 @@ export function daytona(options: DaytonaOptions = {}) {
 
   return defineProvider({
     name,
-    capabilities: ["pause", "snapshot", "ttl", "ports", "background", "persistentDisk"] as const,
+    capabilities: ["pause", "snapshot", "ttl", "ports", "desktop", "background", "persistentDisk"] as const,
 
     async create(createOptions = {}) {
       const key = createOptions.idempotencyKey;
@@ -303,6 +313,22 @@ export function daytona(options: DaytonaOptions = {}) {
       const sandbox = await call(daytona => daytona.get(id), callOptions.signal);
       const link = await call(() => sandbox.getPreviewLink(port), callOptions.signal);
       return link.token ? { url: link.url, headers: { "X-Daytona-Preview-Token": link.token } } : { url: link.url };
+    },
+
+    /** A signed port URL authenticates the HTML, its assets and WebSocket without exposing the API key. */
+    async desktop(id, callOptions = {}) {
+      const sandbox = await call(daytona => daytona.get(id), callOptions.signal);
+      if (info(sandbox).state !== "running")
+        throw new SandboxError("rejected", name, { code: "desktop_requires_running_sandbox" });
+      // Daytona's start operation is idempotent; it also restores desktop processes after sandbox resume.
+      await call(() => sandbox.computerUse.start(), callOptions.signal, 120_000);
+      const issuedAt = Date.now();
+      const link = await call(() => sandbox.getSignedPreviewUrl(6080, desktopTtl), callOptions.signal);
+      const viewer = new URL("/vnc.html", link.url);
+      viewer.search = new URLSearchParams({ autoconnect: "true", resize: "scale", reconnect: "true", view_only: "true", path: "websockify" }).toString();
+      const socket = new URL("/websockify", link.url);
+      socket.protocol = "wss:";
+      return { url: viewer.href, websocketUrl: socket.href, expiresAt: new Date(issuedAt + desktopTtl * 1000) };
     },
 
     /** Runs in its own session, left open: deleting the session would end the process. */

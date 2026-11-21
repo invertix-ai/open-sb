@@ -4,6 +4,17 @@
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
 
+.desktop-panel:fullscreen {
+  display: flex;
+  flex-direction: column;
+}
+
+.desktop-panel:fullscreen .desktop-screen {
+  flex: 1;
+  min-height: 0;
+  aspect-ratio: auto;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

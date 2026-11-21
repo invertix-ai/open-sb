@@ -1,11 +1,12 @@
 // The playground's HTTP API and static UI, on Node's built-in http server. Requests must come from this
 // machine by name (Host and Origin are checked against localhost to block DNS rebinding), POSTs must be JSON,
-// and no response ever carries a credential: provider and key status list variable names only, and every
+// and provider keys never reach the browser: provider and key status list variable names only, and every
 // run event is redacted against the known secret values (environment and saved) before it is stored. Keys saved
 // from the UI (credentials.ts) are merged in on every request, so a new key needs no restart.
+// Short-lived, port-scoped desktop access goes to the viewer in memory; it is stripped from run exports.
 import { readFile } from "node:fs/promises";
 import http from "node:http";
-import { LABEL, errorInfo, liveCount, runAcrossProviders, destroySandbox, type TestFn } from "./harness.ts";
+import { LABEL, desktopConnection, errorInfo, has, live, liveCount, runAcrossProviders, destroySandbox, type TestFn } from "./harness.ts";
 import { byModule, getProvider, logoFile, providerStatuses, secretValues } from "./providers.ts";
 import { Run, RunStore } from "./runs.ts";
 import { FALLBACK_MODELS, MODELS, EFFORTS, PRICES } from "./agent-loop.ts";
@@ -18,6 +19,7 @@ import { capabilities, CHECKS } from "./tests/capabilities.ts";
 import { load, loadOptions, MAX_LOAD } from "./tests/load.ts";
 import { speed, speedOptions } from "./tests/speed.ts";
 import { stream, streamOptions } from "./tests/stream.ts";
+import { desktop, desktopOptions } from "./tests/desktop.ts";
 import { FILE_SIZES_MIB, MAX_FORKS, WORKLOAD_SECTIONS, workloads, workloadsOptions } from "./tests/workloads.ts";
 
 type Env = Record<string, string | undefined>;
@@ -25,6 +27,7 @@ type Env = Record<string, string | undefined>;
 export const TESTS: Record<string, { run: TestFn; options: (raw: Record<string, unknown>) => object }> = {
   speed: { run: speed, options: speedOptions },
   stream: { run: stream, options: streamOptions },
+  desktop: { run: desktop, options: desktopOptions },
   agent: { run: agent, options: agentOptions },
   load: { run: load, options: loadOptions },
   workloads: { run: workloads, options: workloadsOptions },
@@ -41,7 +44,7 @@ const TYPES: Record<string, string> = {
   svg: "image/svg+xml", png: "image/png", woff2: "font/woff2", woff: "font/woff",
 };
 // Frames: the live desktop viewer and port previews, which providers serve over HTTPS.
-const CSP = "default-src 'self'; img-src 'self' data:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-src https:; frame-ancestors 'none'; base-uri 'none'";
+const CSP = "default-src 'self'; img-src 'self' data:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' wss:; frame-src https:; frame-ancestors 'none'; base-uri 'none'";
 
 class HttpError extends Error {
   readonly status: number;
@@ -113,6 +116,7 @@ export function createApp(options: AppOptions) {
       const status = statuses.find(entry => entry.module === name);
       if (!status) throw new HttpError(400, `Unknown provider ${name}`);
       if (!status.available) throw new HttpError(400, `${status.title} is not available: ${status.howToEnable}`);
+      if (test === "desktop" && !status.capabilities.includes("desktop")) throw new HttpError(400, `${status.title} has no desktop capability`);
     }
     if (test === "agent") {
       const model = agentOptions(typeof input.options === "object" && input.options !== null ? input.options as Record<string, unknown> : {}).model;
@@ -273,15 +277,38 @@ export function createApp(options: AppOptions) {
       return json(res, 200, { path: "~/.config/open-sb/credentials.json", credentials: credentialStatuses(baseEnv) });
     const credential = /^\/api\/credentials\/([a-z0-9]+)(\/test)?$/.exec(path);
     if (credential) return credentials(req, res, method, credential[1]!, Boolean(credential[2]));
-    const match = /^\/api\/runs\/([a-z0-9-]+)(?:\/(events|cancel|export))?$/.exec(path);
+    const match = /^\/api\/runs\/([a-z0-9-]+)(?:\/(events|cancel|export|desktop))?$/.exec(path);
     if (match) {
       const run = runs.get(match[1]!);
       if (!run) throw new HttpError(404, "No such run");
       const action = match[2];
       if (method === "GET" && !action) return json(res, 200, run.summary());
       if (method === "GET" && action === "events") return events(req, res, run, url);
-      if (method === "GET" && action === "export")
-        return json(res, 200, { ...run.summary(), events: run.events }, { "Content-Disposition": `attachment; filename="open-sb-${run.test}-${run.id}.json"` });
+      if (method === "GET" && action === "export") {
+        const events = run.events.map(event => {
+          if (event.type !== "output" || event.kind !== "desktop") return event;
+          const { url, websocketUrl, ...metadata } = event;
+          return metadata;
+        });
+        return json(res, 200, { ...run.summary(), events }, { "Content-Disposition": `attachment; filename="open-sb-${run.test}-${run.id}.json"` });
+      }
+      if (method === "POST" && action === "desktop") {
+        const input = await body(req);
+        const module = typeof input.provider === "string" ? input.provider : "";
+        const id = typeof input.sandboxId === "string" ? input.sandboxId : "";
+        if (run.finished || run.signal.aborted) throw new HttpError(409, "This desktop session has ended");
+        if (!run.providers.includes(module) || live.get(module)?.get(id) !== run.id)
+          throw new HttpError(403, "This sandbox does not belong to the active run");
+        const provider = getProvider(module, currentEnv());
+        if (!has(provider, "desktop")) throw new HttpError(400, "This provider has no desktop capability");
+        const connection = await desktopConnection(provider, id, AbortSignal.any([run.signal, AbortSignal.timeout(120_000)]));
+        if (run.finished || run.signal.aborted || live.get(module)?.get(id) !== run.id)
+          throw new HttpError(409, "This desktop session has ended");
+        const previous = run.events.findLast(event => event.type === "output" && event.kind === "desktop" && event.sandboxId === id && event.provider === module);
+        const result = { ...connection, sandboxId: id, ...(previous?.task ? { task: previous.task } : {}) };
+        run.emit({ type: "output", provider: module, kind: "desktop", ...result });
+        return json(res, 200, result);
+      }
       if (method === "POST" && action === "cancel") {
         await body(req);
         if (!run.finished) run.controller.abort(new DOMException("Cancelled", "AbortError"));

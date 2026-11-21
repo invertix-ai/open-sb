@@ -3,7 +3,7 @@
 // for the UI, and running one test across providers in parallel so a failure in one provider never stops
 // the others.
 import { SandboxError } from "../src/errors.ts";
-import type { AnyProvider, SandboxState } from "../src/types.ts";
+import type { AnyProvider, DesktopConnection, SandboxState } from "../src/types.ts";
 import type { Emit, Run } from "./runs.ts";
 
 /** Every sandbox the playground creates carries this label, with the run ID as its value. */
@@ -122,15 +122,21 @@ export async function emitPortLink(ctx: TestContext, id: string, port: number, s
   else ctx.emit({ type: "output", kind: "link", port, url: access.url, ...extra });
 }
 
-/** Waits for the desktop viewer (up to a minute while it provisions) and emits its URL (`output`, kind `desktop`). */
-export async function emitDesktop(ctx: TestContext, id: string, signal = ctx.signal, extra: Record<string, unknown> = {}): Promise<void> {
-  const desktop = method<(id: string, o?: object) => Promise<{ url: string } | { provisioning: true }>>(ctx.provider, "desktop");
+/** Resolves fresh viewer credentials; shared by initial connections and the reconnect endpoint. */
+export async function desktopConnection(provider: AnyProvider, id: string, signal: AbortSignal): Promise<DesktopConnection> {
+  const desktop = method<(id: string, o?: object) => Promise<DesktopConnection | { provisioning: true }>>(provider, "desktop");
   for (let tries = 0; tries < 30; tries++) {
     const result = await desktop(id, { signal });
-    if ("url" in result) { ctx.emit({ type: "output", kind: "desktop", url: result.url, ...extra }); return; }
+    if ("url" in result) return result;
     await sleep(2_000, signal);
   }
-  ctx.emit({ type: "log", level: "warn", message: "The desktop was still provisioning after a minute" });
+  throw new SandboxError("timeout", provider.name, { code: "desktop_provisioning_timeout" });
+}
+
+/** Emits viewer access without ever including the provider's API key. */
+export async function emitDesktop(ctx: TestContext, id: string, signal = ctx.signal, extra: Record<string, unknown> = {}): Promise<void> {
+  const connection = await desktopConnection(ctx.provider, id, signal);
+  ctx.emit({ type: "output", kind: "desktop", ...connection, sandboxId: id, ...extra });
 }
 
 /**

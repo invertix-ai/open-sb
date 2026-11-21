@@ -1,6 +1,6 @@
 // Shapes the playground server sends (see playground/app.ts and playground/runs.ts).
 
-export type TestId = "speed" | "stream" | "agent" | "load" | "workloads" | "capabilities";
+export type TestId = "speed" | "stream" | "desktop" | "agent" | "load" | "workloads" | "capabilities";
 
 export interface ProviderStatus {
   module: string;
@@ -72,6 +72,15 @@ export interface TaskResult {
 
 export interface StreamLine { n: number; text: string; lagMs: number }
 
+/** Expiring credentials, held only in memory. Never put these in localStorage or an exported run. */
+export interface DesktopConnection {
+  url: string;
+  websocketUrl?: string;
+  expiresAt?: string;
+  sandboxId: string;
+  task?: string;
+}
+
 export interface ProviderRun {
   status: "queued" | "running" | "done" | "failed" | "cancelled";
   ms?: number;
@@ -83,7 +92,7 @@ export interface ProviderRun {
   clock?: { offsetMs: number; rttMs: number; precise: boolean };
   /** For the Agent test, `task` is the task whose sandbox the URL belongs to. */
   link?: { url: string; port: number; task?: string };
-  desktop?: { url: string; task?: string };
+  desktop?: DesktopConnection;
   load?: LoadMetric;
   checks: Record<string, { ok: boolean; ms: number; message?: string }>;
   /** Agent and Workloads steps, in order, for the live terminal. */

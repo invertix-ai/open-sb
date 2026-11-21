@@ -17,7 +17,7 @@ import { agent, setOpenAIClientFactory } from "../playground/tests/agent.ts";
 import { secretValues } from "../playground/providers.ts";
 import { createApp } from "../playground/app.ts";
 import { CredentialError, credentialsPath, loadSaved, mergedEnv, removeValues, saveValues, validateValues } from "../playground/credentials.ts";
-import { LABEL, runAcrossProviders } from "../playground/harness.ts";
+import { LABEL, live, runAcrossProviders } from "../playground/harness.ts";
 import { Run, type PlaygroundEvent } from "../playground/runs.ts";
 import { histogram, percentile, summarize } from "../playground/stats.ts";
 
@@ -90,6 +90,32 @@ test("requests for other hosts or from other origins are refused", async () => {
     assert.equal((await get(port, "/api/runs", { Host: "attacker.example" })).status, 403);
     assert.equal((await get(port, "/api/runs", { Origin: "http://attacker.example" })).status, 403);
     assert.equal((await get(port, "/api/runs", { Host: `localhost:${port}`, Origin: `http://localhost:${port}` })).status, 200);
+  });
+});
+
+test("desktop reconnect is restricted to sandboxes of an active run, and exports omit viewer credentials", async () => {
+  await withServer(async (port, app) => {
+    const run = new Run("desktop", ["daytona"], {});
+    app.runs.add(run);
+    const previous = live.get("daytona");
+    live.set("daytona", new Map([["owned", run.id], ["unrelated", "other-run"]]));
+    const reconnect = (sandboxId: string, provider = "daytona") => fetch(`http://127.0.0.1:${port}/api/runs/${run.id}/desktop`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider, sandboxId }),
+    });
+    try {
+      assert.equal((await reconnect("unrelated")).status, 403);
+      assert.equal((await reconnect("owned", "boat")).status, 403);
+      run.emit({ type: "output", kind: "desktop", provider: "daytona", sandboxId: "owned", url: "https://private-viewer.example/", websocketUrl: "wss://private-socket.example/" });
+      const exported = (await get(port, `/api/runs/${run.id}/export`)).body;
+      assert.ok(!exported.includes("private-viewer") && !exported.includes("private-socket"), "bearer URLs must not be saved in exports");
+      assert.equal(JSON.parse(exported).events[0].sandboxId, "owned", "non-secret metadata remains reviewable");
+      run.controller.abort();
+      assert.equal((await reconnect("owned")).status, 409, "cancel immediately revokes reconnect access");
+      run.finish("cancelled");
+      assert.equal((await reconnect("owned")).status, 409);
+    } finally {
+      if (previous) live.set("daytona", previous); else live.delete("daytona");
+    }
   });
 });
 

@@ -13,6 +13,7 @@ import type { TestId } from "@/lib/types";
 export function blockedReason(store: ReturnType<typeof useStore>, test: TestId): string {
   if (!store.overview) return "Loading";
   if (store.selectedAvailable().length === 0) return "Select at least one available provider";
+  if (test === "desktop" && !store.selectedAvailable().some(module => store.provider(module)?.capabilities.includes("desktop"))) return "Select a provider with desktop support";
   if (test === "agent" && backendOf(store.overview, store.options.agent.model) === "claude" && !store.overview.claude.available) return "No Claude key";
   if (test === "agent" && backendOf(store.overview, store.options.agent.model) === "openai" && !store.overview.openai?.available) return "No OpenAI key";
   if (test === "agent" && store.options.agent.tasks?.length === 0) return "Pick at least one task";
@@ -51,12 +52,12 @@ export function RunControls({ test }: { test: TestId }) {
       {blocked && !running && <span className="hidden text-xs text-muted-foreground md:inline">{blocked}</span>}
       {running && (
         <Button variant="outline" className="text-destructive" onClick={() => store.cancel(test).then(() => toast("Cancelling", { description: "Sandboxes are being destroyed." })).catch(error => toast.error((error as Error).message))}>
-          <Square className="fill-current" />Cancel
+          <Square className="fill-current" />{test === "desktop" ? "Stop desktop" : "Cancel"}
         </Button>
       )}
       <Button size="lg" className="min-w-28" disabled={running || starting || Boolean(blocked)} onClick={() => (spends ? setConfirming(true) : start())}>
         {running || starting ? <Loader2 className="animate-spin" /> : <Play className="fill-current" />}
-        {running ? "Running" : test === "capabilities" ? "Quick verify" : "Run"}
+        {running ? "Running" : test === "desktop" ? "Start desktop" : test === "capabilities" ? "Quick verify" : "Run"}
       </Button>
 
       <Dialog open={confirming} onOpenChange={setConfirming}>

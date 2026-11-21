@@ -20,9 +20,10 @@ import { CapabilitiesTab } from "@/tabs/CapabilitiesTab";
 import { LoadTab } from "@/tabs/LoadTab";
 import { SpeedTab } from "@/tabs/SpeedTab";
 import { StreamTab } from "@/tabs/StreamTab";
+import { DesktopTab } from "@/tabs/DesktopTab";
 import { WorkloadsTab } from "@/tabs/WorkloadsTab";
 
-const TABS: Record<TestId, () => React.ReactNode> = { speed: SpeedTab, stream: StreamTab, agent: AgentTab, load: LoadTab, workloads: WorkloadsTab, capabilities: CapabilitiesTab };
+const TABS: Record<TestId, () => React.ReactNode> = { speed: SpeedTab, stream: StreamTab, desktop: DesktopTab, agent: AgentTab, load: LoadTab, workloads: WorkloadsTab, capabilities: CapabilitiesTab };
 
 export function App() {
   const s = useStore();
@@ -71,7 +72,7 @@ export function App() {
               <Alert variant="destructive" className="mb-5"><AlertTitle>Could not reach the playground server</AlertTitle><AlertDescription>{s.overviewError}</AlertDescription></Alert>
             )}
             <Tabs value={s.tab} onValueChange={value => s.setTab(value as TestId)} className="gap-5">
-              <TabsList>
+              <TabsList className="max-w-full overflow-x-auto">
                 {TESTS.map(test => (
                   <TabsTrigger key={test.id} value={test.id} className="gap-2 px-3">
                     {test.label}
