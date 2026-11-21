@@ -4,6 +4,8 @@
 // the others.
 import { SandboxError } from "../src/errors.ts";
 import type { AnyProvider, DesktopConnection, SandboxState } from "../src/types.ts";
+import { browserDesktop } from "./desktop-relay.ts";
+import { byModule } from "./providers.ts";
 import type { Emit, Run } from "./runs.ts";
 
 /** Every sandbox the playground creates carries this label, with the run ID as its value. */
@@ -74,6 +76,9 @@ export async function createSandbox(ctx: TestContext, extraLabels: Record<string
   }
 }
 
+/** The image for a sandbox that shows a desktop: the provider's desktop image when its default has none. */
+export const desktopImage = (ctx: Pick<TestContext, "module" | "env">) => byModule.get(ctx.module)?.desktopImage?.(ctx.env);
+
 /** Polls `get` until the sandbox reaches `state`; throws a timeout SandboxError after `timeoutMs`. */
 export async function waitForState(ctx: TestContext, id: string, state: SandboxState, timeoutMs = 300_000, intervalMs = 250): Promise<void> {
   const deadline = Date.now() + timeoutMs;
@@ -133,10 +138,10 @@ export async function desktopConnection(provider: AnyProvider, id: string, signa
   throw new SandboxError("timeout", provider.name, { code: "desktop_provisioning_timeout" });
 }
 
-/** Emits viewer access without ever including the provider's API key. */
+/** Emits viewer access: never the provider's API key, and never headers (those connections are relayed). */
 export async function emitDesktop(ctx: TestContext, id: string, signal = ctx.signal, extra: Record<string, unknown> = {}): Promise<void> {
   const connection = await desktopConnection(ctx.provider, id, signal);
-  ctx.emit({ type: "output", kind: "desktop", ...connection, sandboxId: id, ...extra });
+  ctx.emit({ type: "output", kind: "desktop", ...browserDesktop(connection, { runId: ctx.runId, module: ctx.module, sandboxId: id }), sandboxId: id, ...extra });
 }
 
 /**

@@ -4,6 +4,7 @@
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, statSync } from "node:fs";
 import http from "node:http";
+import net from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AddressInfo } from "node:net";
@@ -17,6 +18,7 @@ import { agent, setOpenAIClientFactory } from "../playground/tests/agent.ts";
 import { secretValues } from "../playground/providers.ts";
 import { createApp } from "../playground/app.ts";
 import { CredentialError, credentialsPath, loadSaved, mergedEnv, removeValues, saveValues, validateValues } from "../playground/credentials.ts";
+import { browserDesktop, closeRelays } from "../playground/desktop-relay.ts";
 import { LABEL, live, runAcrossProviders } from "../playground/harness.ts";
 import { Run, type PlaygroundEvent } from "../playground/runs.ts";
 import { histogram, percentile, summarize } from "../playground/stats.ts";
@@ -40,6 +42,7 @@ async function withServer(fn: (port: number, app: ReturnType<typeof createApp>) 
   const server = http.createServer();
   const app = createApp({ env, port: () => (server.address() as AddressInfo).port });
   server.on("request", app.handler);
+  server.on("upgrade", app.upgrade);
   await new Promise<void>(done => server.listen(0, "127.0.0.1", done));
   try { await fn((server.address() as AddressInfo).port, app); }
   finally { server.closeAllConnections(); await new Promise(done => server.close(done)); }
@@ -105,9 +108,10 @@ test("desktop reconnect is restricted to sandboxes of an active run, and exports
     try {
       assert.equal((await reconnect("unrelated")).status, 403);
       assert.equal((await reconnect("owned", "boat")).status, 403);
-      run.emit({ type: "output", kind: "desktop", provider: "daytona", sandboxId: "owned", url: "https://private-viewer.example/", websocketUrl: "wss://private-socket.example/" });
+      run.emit({ type: "output", kind: "desktop", provider: "daytona", sandboxId: "owned", url: "https://private-viewer.example/", websocketUrl: "wss://private-socket.example/", password: "vncPass1" });
       const exported = (await get(port, `/api/runs/${run.id}/export`)).body;
       assert.ok(!exported.includes("private-viewer") && !exported.includes("private-socket"), "bearer URLs must not be saved in exports");
+      assert.ok(!exported.includes("vncPass1"), "VNC passwords must not be saved in exports");
       assert.equal(JSON.parse(exported).events[0].sandboxId, "owned", "non-secret metadata remains reviewable");
       run.controller.abort();
       assert.equal((await reconnect("owned")).status, 409, "cancel immediately revokes reconnect access");
@@ -494,5 +498,54 @@ test("saved values win over the environment, the API reports only where a value 
       assert.equal(deleted.status, 200);
       assert.equal(loadSaved().e2b, undefined);
     }, env);
+  });
+});
+
+/** Sends a WebSocket upgrade by hand and returns the status line the server answers with. */
+function upgradeStatus(port: number, path: string, origin?: string): Promise<string> {
+  return new Promise((done, fail) => {
+    const socket = net.connect(port, "127.0.0.1", () => socket.write([`GET ${path} HTTP/1.1`, `Host: 127.0.0.1:${port}`, "Upgrade: websocket", "Connection: Upgrade",
+      "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==", "Sec-WebSocket-Version: 13", ...(origin ? [`Origin: ${origin}`] : []), "", ""].join("\r\n")));
+    socket.once("data", chunk => { done(chunk.toString().split("\r\n")[0]!); socket.destroy(); });
+    socket.once("error", fail);
+  });
+}
+
+test("desktop access that needs headers is relayed: the page never sees them, and only the owning active run may connect", async () => {
+  const owner = { runId: "run-a", module: "e2b", sandboxId: "sb-1" };
+  // No headers: passed through unchanged (minus nothing secret).
+  assert.deepEqual(browserDesktop({ url: "https://v.example/vnc.html", websocketUrl: "wss://v.example/websockify", password: "p" }, owner),
+    { url: "https://v.example/vnc.html", websocketUrl: "wss://v.example/websockify", password: "p" });
+  const relayed = browserDesktop({ url: "https://6080-sb-1.e2b.app/vnc.html", websocketUrl: "wss://6080-sb-1.e2b.app/websockify", password: "p",
+    headers: { "e2b-traffic-access-token": "secret-token" } }, owner);
+  assert.ok(!JSON.stringify(relayed).includes("secret-token"), "provider headers never reach the page");
+  assert.equal(relayed.url, "", "the viewer page cannot be relayed, so it is not offered");
+  assert.match(relayed.websocketUrl!, /^\/api\/desktop-relay\/[A-Za-z0-9_-]{32}$/);
+  assert.equal(browserDesktop({ url: "", websocketUrl: "wss://6080-sb-1.e2b.app/websockify", headers: { "e2b-traffic-access-token": "renewed" } }, owner).websocketUrl,
+    relayed.websocketUrl, "a reconnect keeps the same relay path");
+  assert.throws(() => browserDesktop({ url: "https://x.example/", headers: { a: "b" } }, owner), /relay/);
+  assert.throws(() => browserDesktop({ url: "", websocketUrl: "wss://x.example/", headers: { "bad\r\nheader": "b" } }, owner), /relay/);
+  closeRelays("run-a");
+
+  await withServer(async (port, app) => {
+    const run = new Run("desktop", ["e2b"], {});
+    app.runs.add(run);
+    const previous = live.get("e2b");
+    live.set("e2b", new Map([["sb-1", run.id]]));
+    const { websocketUrl } = browserDesktop({ url: "", websocketUrl: "wss://127.0.0.1:1/websockify", headers: { "e2b-traffic-access-token": "t" } },
+      { runId: run.id, module: "e2b", sandboxId: "sb-1" });
+    try {
+      assert.match(await upgradeStatus(port, websocketUrl!, "https://evil.example"), / 403 /, "foreign origins are refused");
+      assert.match(await upgradeStatus(port, "/api/desktop-relay/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"), / 403 /, "unknown relays are refused");
+      assert.match(await upgradeStatus(port, "/api/runs"), / 404 /, "other paths have no WebSockets");
+      live.get("e2b")!.set("sb-1", "another-run");
+      assert.match(await upgradeStatus(port, websocketUrl!), / 403 /, "a relay only serves the run that owns the sandbox");
+      live.get("e2b")!.set("sb-1", run.id);
+      run.finish("cancelled");
+      assert.match(await upgradeStatus(port, websocketUrl!), / 403 /, "a relay closes with its run");
+    } finally {
+      closeRelays(run.id);
+      if (previous) live.set("e2b", previous); else live.delete("e2b");
+    }
   });
 });

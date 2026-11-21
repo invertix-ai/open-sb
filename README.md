@@ -92,7 +92,7 @@ snapshot         yes  yes
 ttl              yes  -
 ports            yes  yes
 ssh              -    -
-desktop          -    yes
+desktop          yes  yes
 background*      yes  yes
 persistentDisk*  yes  yes
 (* required)
@@ -122,7 +122,7 @@ Optional capabilities:
 | `ttl` | `setTtl` | The provider ends the sandbox on its own (stops or deletes it, per provider); `get()` reports `expiresAt` |
 | `ports` | `portUrl` | A private HTTPS address for a port inside the sandbox |
 | `ssh` | `ssh` | An SSH endpoint and host key for a public key you supply |
-| `desktop` | `desktop` | A viewer URL, optionally a live RFB WebSocket and expiry, for a graphical desktop |
+| `desktop` | `desktop` | A viewer URL, optionally a live RFB WebSocket with its password, expiry or required headers, for a graphical desktop |
 | `background` | `startBackground` | A process that keeps running after the call returns |
 
 Every failure is a `SandboxError` with a `kind`: `unavailable` (an outage, so failover moves on), `not_found`,
@@ -132,7 +132,7 @@ Every failure is a `SandboxError` with a `kind`: `unavailable` (an outage, so fa
 
 | Provider | Import | Install | Capabilities | Live conformance |
 | --- | --- | --- | --- | --- |
-| [E2B](https://e2b.dev) | `@invertix/open-sb/e2b` | `e2b` | pause, persistentDisk, snapshot, ttl, ports, background | not run yet |
+| [E2B](https://e2b.dev) | `@invertix/open-sb/e2b` | `e2b` | pause, persistentDisk, snapshot, ttl, ports, desktop, background | passes |
 | [Daytona](https://daytona.io) | `@invertix/open-sb/daytona` | `@daytonaio/sdk` | pause, persistentDisk, snapshot, ttl, ports, desktop, background | desktop verified; full suite pending |
 | [Vercel Sandbox](https://vercel.com/docs/vercel-sandbox) | `@invertix/open-sb/vercel` | `@vercel/sandbox` | pause, persistentDisk, ttl, ports, background | not run yet |
 | [Modal](https://modal.com) | `@invertix/open-sb/modal` | `modal` | snapshot, ports, background | not run yet |
@@ -221,7 +221,7 @@ them, each in its own column:
 - **Speed:** create, first command, command round trips, a 1 MiB file write and read, pause, resume, destroy.
 - **Live stream:** a background process prints a line every 200 ms; see how fast lines arrive from each provider.
 - **Desktop:** an embedded live desktop with connection status, fullscreen, reconnect and optional mouse and
-  keyboard control. Daytona streams over a signed VNC WebSocket; viewer-only providers use an iframe.
+  keyboard control. E2B and Daytona stream over a VNC WebSocket; viewer-only providers use an iframe.
   Sessions default to 10 minutes and clean up their sandboxes when stopped or expired.
 - **Agent:** a Claude or OpenAI agent works through tasks inside each sandbox (code and tests, an HTTP server,
   git, data analysis on a 200k-row CSV, a headless browser, a PDF report and chart, ffmpeg, a webhook
@@ -267,12 +267,25 @@ so you can see changing pixels and test control. The Live stream and Agent tabs 
 stays on the server. Call `desktop(id)` again to renew access; the playground does this for reconnects and before
 expiry. Custom images need the desktop packages installed. See [setup, protocol and live verification](docs/daytona-desktop.md).
 
+### E2B desktop
+
+Add `E2B_API_KEY` through the playground or environment, select E2B, and open **Desktop → Start desktop**. The
+playground creates E2B desktop sandboxes from E2B's `desktop` template (`E2B_DESKTOP_TEMPLATE` changes it), in the
+Desktop and Agent tabs; other tests keep the default `base` template, which has no desktop.
+
+`e2b().desktop(id)` starts Xvfb, XFCE, x11vnc and noVNC in the sandbox when they are not running yet, and returns a
+`DesktopConnection` with `url`, `websocketUrl` and the VNC `password` (also in `url`'s fragment). Calling it again
+returns the same stream, also after pause and resume. On a sandbox with private traffic (`publicTraffic: false`, the
+default for E2B projects created since October 30, 2026) it also returns `headers`, which a browser cannot send:
+the playground relays such desktops through its own WebSocket. See [setup, protocol and live verification](docs/e2b-desktop.md).
+
 ## Status
 
 Early. The interface may still change before 1.0. Every provider is built against its official SDK or API and
-has unit tests. Docker and Agent37 pass the live conformance suite, and Boat passes 7 of 11 tests (the rest need
-a key with more permissions). The other 14 have their live runs next; the table above shows where each stands.
-Daytona's desktop streaming, input, reconnect and pause/resume have also been verified with real sandboxes locally.
+has unit tests. Docker, Agent37 and E2B pass the live conformance suite, and Boat passes 7 of 11 tests (the rest need
+a key with more permissions). The other 13 have their live runs next; the table above shows where each stands.
+E2B's run includes the desktop check. Daytona's and E2B's desktop streaming, input, reconnect and pause/resume
+have also been verified with real sandboxes locally.
 The package is not on npm yet: it ships TypeScript sources, and a JavaScript build comes with the first release.
 
 ## Development

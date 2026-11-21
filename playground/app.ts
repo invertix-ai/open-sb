@@ -3,9 +3,12 @@
 // and provider keys never reach the browser: provider and key status list variable names only, and every
 // run event is redacted against the known secret values (environment and saved) before it is stored. Keys saved
 // from the UI (credentials.ts) are merged in on every request, so a new key needs no restart.
-// Short-lived, port-scoped desktop access goes to the viewer in memory; it is stripped from run exports.
+// Desktop access goes to the viewer in memory and is stripped from run exports; access that needs headers (an
+// E2B private sandbox's traffic token) stays here and the page reaches it through a WebSocket relay.
 import { readFile } from "node:fs/promises";
 import http from "node:http";
+import type { Duplex } from "node:stream";
+import { browserDesktop, closeRelays, relayUpgrade } from "./desktop-relay.ts";
 import { LABEL, desktopConnection, errorInfo, has, live, liveCount, runAcrossProviders, destroySandbox, type TestFn } from "./harness.ts";
 import { byModule, getProvider, logoFile, providerStatuses, secretValues } from "./providers.ts";
 import { Run, RunStore } from "./runs.ts";
@@ -133,7 +136,8 @@ export function createApp(options: AppOptions) {
     run.emit({ type: "log", level: "info", message: `Run ${run.id}: ${test} on ${requested.join(", ")}` });
     runAcrossProviders(run, providers, spec.run, env)
       .then(() => run.finish(run.signal.aborted ? "cancelled" : "done"))
-      .catch(error => { run.emit({ type: "error", ...errorInfo(error) }); run.finish("failed"); });
+      .catch(error => { run.emit({ type: "error", ...errorInfo(error) }); run.finish("failed"); })
+      .finally(() => closeRelays(run.id));
     return run;
   }
 
@@ -287,7 +291,7 @@ export function createApp(options: AppOptions) {
       if (method === "GET" && action === "export") {
         const events = run.events.map(event => {
           if (event.type !== "output" || event.kind !== "desktop") return event;
-          const { url, websocketUrl, ...metadata } = event;
+          const { url, websocketUrl, password, ...metadata } = event;
           return metadata;
         });
         return json(res, 200, { ...run.summary(), events }, { "Content-Disposition": `attachment; filename="open-sb-${run.test}-${run.id}.json"` });
@@ -305,7 +309,7 @@ export function createApp(options: AppOptions) {
         if (run.finished || run.signal.aborted || live.get(module)?.get(id) !== run.id)
           throw new HttpError(409, "This desktop session has ended");
         const previous = run.events.findLast(event => event.type === "output" && event.kind === "desktop" && event.sandboxId === id && event.provider === module);
-        const result = { ...connection, sandboxId: id, ...(previous?.task ? { task: previous.task } : {}) };
+        const result = { ...browserDesktop(connection, { runId: run.id, module, sandboxId: id }), sandboxId: id, ...(previous?.task ? { task: previous.task } : {}) };
         run.emit({ type: "output", provider: module, kind: "desktop", ...result });
         return json(res, 200, result);
       }
@@ -328,5 +332,16 @@ export function createApp(options: AppOptions) {
     });
   };
 
-  return { handler, runs, redact };
+  /** WebSocket upgrades: only desktop relays, under the same Host and Origin checks as every request. */
+  const upgrade = (req: http.IncomingMessage, socket: Duplex, head: Buffer) => {
+    socket.on("error", () => socket.destroy());
+    const checked = allowedHost(req.headers.host) && allowedOrigin(req.headers.origin);
+    const handled = relayUpgrade(req, socket, head, owner => {
+      const run = runs.get(owner.runId);
+      return checked && Boolean(run) && !run!.finished && !run!.signal.aborted && live.get(owner.module)?.get(owner.sandboxId) === owner.runId;
+    });
+    if (!handled) socket.end("HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
+  };
+
+  return { handler, upgrade, runs, redact };
 }

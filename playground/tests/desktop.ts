@@ -1,5 +1,5 @@
 // A bounded, interactive desktop session. The run harness owns cleanup on stop, failure and server shutdown.
-import { createSandbox, emitDesktop, errorInfo, has, intOption, method, sleep, waitForState, type TestContext } from "../harness.ts";
+import { createSandbox, desktopImage, emitDesktop, errorInfo, has, intOption, method, sleep, waitForState, type TestContext } from "../harness.ts";
 import { DESKTOP_DEMO } from "../desktop-demo.ts";
 
 export function desktopOptions(raw: Record<string, unknown>) {
@@ -11,7 +11,7 @@ export async function desktop(ctx: TestContext) {
   const { durationS, demo } = desktopOptions(ctx.options);
   const started = performance.now();
   ctx.emit({ type: "log", message: "Creating a desktop sandbox" });
-  const id = await createSandbox(ctx);
+  const id = await createSandbox(ctx, {}, desktopImage(ctx));
   await waitForState(ctx, id, "running");
   // An extra provider-side lifetime bound covers a local process crash when the provider supports it.
   if (has(ctx.provider, "ttl"))

@@ -10,6 +10,7 @@ if (!Number.isInteger(port) || port < 0 || port > 65_535) throw new Error(`PORT 
 const server = http.createServer();
 const app = createApp({ port: () => (server.address() as AddressInfo | null)?.port ?? port });
 server.on("request", app.handler);
+server.on("upgrade", app.upgrade);
 server.listen(port, "127.0.0.1", () => {
   console.log(`open-sb playground: http://127.0.0.1:${(server.address() as AddressInfo).port}/`);
 });

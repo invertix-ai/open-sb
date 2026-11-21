@@ -74,8 +74,12 @@ export interface StreamLine { n: number; text: string; lagMs: number }
 
 /** Expiring credentials, held only in memory. Never put these in localStorage or an exported run. */
 export interface DesktopConnection {
+  /** A standalone viewer page; empty when the desktop is only reachable through the server's relay. */
   url: string;
+  /** `wss:` to the provider, or a same-origin relay path when the provider needs headers a browser cannot send. */
   websocketUrl?: string;
+  /** The RFB (VNC) password the stream asks for. */
+  password?: string;
   expiresAt?: string;
   sandboxId: string;
   task?: string;

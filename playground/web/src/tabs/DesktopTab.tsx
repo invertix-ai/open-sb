@@ -18,7 +18,7 @@ export function DesktopTab() {
       <Field label="Open a live demo" hint="A clock and input test, rendered inside the remote browser.">
         <Switch aria-label="Open desktop demo" checked={options.demo} onCheckedChange={value => store.setOption("desktop", "demo", value)} />
       </Field>
-      <p className="flex items-center gap-2 text-xs text-muted-foreground"><MonitorPlay className="size-4" />{supported.length ? supported.map(module => store.provider(module)?.title).join(", ") : "Select Daytona or Boat in the sidebar."}</p>
+      <p className="flex items-center gap-2 text-xs text-muted-foreground"><MonitorPlay className="size-4" />{supported.length ? supported.map(module => store.provider(module)?.title).join(", ") : "Select E2B, Daytona or Boat in the sidebar."}</p>
     </>}
     card={(view, module) => {
       const run = view.p[module]!;

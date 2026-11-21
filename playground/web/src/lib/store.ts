@@ -218,7 +218,7 @@ class Store {
           p.lines.push(...event.lines);
           if (p.lines.length > 2000) p.lines.splice(0, p.lines.length - 2000);
         } else if (event.kind === "link") p.link = { url: event.url, port: event.port, task: event.task };
-        else if (event.kind === "desktop") p.desktop = { url: event.url, websocketUrl: event.websocketUrl, expiresAt: event.expiresAt, sandboxId: event.sandboxId, task: event.task };
+        else if (event.kind === "desktop") p.desktop = { url: event.url, websocketUrl: event.websocketUrl, password: event.password, expiresAt: event.expiresAt, sandboxId: event.sandboxId, task: event.task };
         break;
       case "agent":
         if (!p) break;
