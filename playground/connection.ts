@@ -1,8 +1,9 @@
 // "Test connection" for the key setup panels: one cheap call that creates nothing. Providers run `list()`,
-// Docker `docker info`, Claude `models.retrieve`. Results carry the error kind, code and HTTP status only,
+// Docker `docker info`, Claude and OpenAI `models.retrieve`. Results carry the error kind, code and HTTP status only,
 // never a provider's message text, which could echo a request or a credential.
 import { execFile } from "node:child_process";
 import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { SandboxError } from "../src/errors.ts";
 import { byModule, missingEnv } from "./providers.ts";
 
@@ -24,7 +25,7 @@ const TIMEOUT_MS = 20_000;
 function describe(error: unknown, started: number): ConnectionResult {
   const ms = Math.round(performance.now() - started);
   if (error instanceof SandboxError) return { ok: false, kind: error.kind, code: error.code, status: error.status, ms };
-  if (error instanceof Anthropic.APIError) {
+  if (error instanceof Anthropic.APIError || error instanceof OpenAI.APIError) {
     const status = typeof error.status === "number" ? error.status : undefined;
     const kind = status === undefined || status >= 500 || status === 429 ? "unavailable" : status === 404 ? "not_found" : "rejected";
     return { ok: false, kind, code: error.constructor.name, status, ms };
@@ -59,6 +60,18 @@ export async function testClaude(env: Env): Promise<ConnectionResult> {
   try {
     const client = env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 0 }) : new Anthropic({ maxRetries: 0 });
     await client.models.retrieve("claude-opus-5-5", {}, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+    return { ok: true, ms: Math.round(performance.now() - started) };
+  } catch (error) {
+    return describe(error, started);
+  }
+}
+
+export async function testOpenAI(env: Env): Promise<ConnectionResult> {
+  const started = performance.now();
+  if (!env.OPENAI_API_KEY) return { ok: false, kind: "missing", missing: ["OPENAI_API_KEY"], ms: 0 };
+  try {
+    const client = new OpenAI({ apiKey: env.OPENAI_API_KEY, maxRetries: 0 });
+    await client.models.retrieve("gpt-6.1-sol", { signal: AbortSignal.timeout(TIMEOUT_MS) });
     return { ok: true, ms: Math.round(performance.now() - started) };
   } catch (error) {
     return describe(error, started);

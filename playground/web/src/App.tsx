@@ -20,8 +20,9 @@ import { CapabilitiesTab } from "@/tabs/CapabilitiesTab";
 import { LoadTab } from "@/tabs/LoadTab";
 import { SpeedTab } from "@/tabs/SpeedTab";
 import { StreamTab } from "@/tabs/StreamTab";
+import { WorkloadsTab } from "@/tabs/WorkloadsTab";
 
-const TABS: Record<TestId, () => React.ReactNode> = { speed: SpeedTab, stream: StreamTab, agent: AgentTab, load: LoadTab, capabilities: CapabilitiesTab };
+const TABS: Record<TestId, () => React.ReactNode> = { speed: SpeedTab, stream: StreamTab, agent: AgentTab, load: LoadTab, workloads: WorkloadsTab, capabilities: CapabilitiesTab };
 
 export function App() {
   const s = useStore();

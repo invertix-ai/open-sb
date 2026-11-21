@@ -3,7 +3,7 @@
 // Views are mutated in place and components re-render on a version number, batched to one per frame.
 import { useSyncExternalStore } from "react";
 import { api, post } from "./api";
-import type { Overview, PlaygroundEvent, ProviderRun, RunSummary, TestId, View } from "./types";
+import type { Backend, ModelInfo, Overview, PlaygroundEvent, ProviderRun, RunSummary, TestId, View } from "./types";
 
 const stored = <T>(key: string, fallback: T): T => {
   try { return (JSON.parse(localStorage.getItem(key) ?? "null") as T) ?? fallback; } catch { return fallback; }
@@ -14,6 +14,7 @@ export interface Options {
   stream: { durationS: number; intervalMs: number; pollMs: number };
   agent: { model: string; effort: string; tasks: string[] | null; maxTurns: number; timeLimitMin: number };
   load: { n: number };
+  workloads: { sections: string[]; sizes: number[]; forks: number };
   capabilities: Record<string, never>;
 }
 
@@ -22,18 +23,35 @@ const DEFAULT_OPTIONS: Options = {
   stream: { durationS: 15, intervalMs: 200, pollMs: 400 },
   agent: { model: "claude-opus-5-5", effort: "medium", tasks: null, maxTurns: 25, timeLimitMin: 10 },
   load: { n: 5 },
+  workloads: { sections: ["files", "persistence", "fork", "isolation"], sizes: [1, 10, 50], forks: 3 },
   capabilities: {},
 };
 
 export const TESTS: { id: TestId; label: string; blurb: string }[] = [
   { id: "speed", label: "Speed", blurb: "Create, exec, file transfer, pause, resume and destroy timings." },
   { id: "stream", label: "Live stream", blurb: "A background process writes a line every interval; see how fast lines arrive." },
-  { id: "agent", label: "Agent", blurb: "A Claude agent works through real tasks inside each sandbox." },
+  { id: "agent", label: "Agent", blurb: "A Claude or OpenAI agent works through real tasks inside each sandbox, live on screen." },
   { id: "load", label: "Load", blurb: "Many sandboxes at once: success rate, errors and latency spread." },
+  { id: "workloads", label: "Workloads", blurb: "What agents rely on, without a model: big files, pause and resume, forks from a snapshot, isolation." },
   { id: "capabilities", label: "Capabilities", blurb: "Declared capabilities, and a quick check of the core interface." },
 ];
 
-const newProviderRun = (): ProviderRun => ({ status: "queued", logs: [], metrics: {}, lines: [], checks: {}, transcript: [], tasks: {} });
+/** Every agent model with the backend that runs it. */
+export function agentModels(overview: Overview | null): (ModelInfo & { backend: Backend })[] {
+  if (!overview) return [];
+  return [
+    ...overview.claude.models.map(model => ({ ...model, backend: "claude" as const })),
+    ...(overview.openai?.models ?? []).map(model => ({ ...model, backend: "openai" as const })),
+  ];
+}
+
+export const backendOf = (overview: Overview | null, model: string): Backend =>
+  agentModels(overview).find(entry => entry.id === model)?.backend ?? (model.startsWith("gpt-") ? "openai" : "claude");
+
+const newProviderRun = (): ProviderRun => ({ status: "queued", logs: [], metrics: {}, lines: [], checks: {}, transcript: [], tasks: {}, sections: {} });
+
+/** The tasks run when none are picked: all but the heavy ones. */
+export const defaultTasks = (overview: Overview | null) => (overview?.tasks ?? []).filter(task => !task.heavy).map(task => task.id);
 
 class Store {
   overview: Overview | null = null;
@@ -71,7 +89,13 @@ class Store {
       this.overviewError = null;
       this.live = this.overview.liveSandboxes;
       for (const module of [...this.selected]) if (!this.provider(module)?.available) this.selected.delete(module);
-      if (!this.overview.claude.models.some(model => model.id === this.options.agent.model)) this.options.agent.model = this.overview.claude.models[0]?.id ?? "claude-opus-5-5";
+      // An unknown model, or one whose key is missing while the other backend has one, moves to a usable default.
+      const current = agentModels(this.overview).find(model => model.id === this.options.agent.model);
+      const claudeOk = this.overview.claude.available, openaiOk = Boolean(this.overview.openai?.available);
+      const claudeDefault = this.overview.claude.models[0]?.id ?? "claude-opus-5-5", openaiDefault = this.overview.openai?.defaultModel ?? "gpt-6.1-sol";
+      if (!current) this.options.agent.model = !claudeOk && openaiOk ? openaiDefault : claudeDefault;
+      else if (current.backend === "claude" && !claudeOk && openaiOk) this.options.agent.model = openaiDefault;
+      else if (current.backend === "openai" && !openaiOk && claudeOk) this.options.agent.model = claudeDefault;
     } catch (error) {
       this.overviewError = (error as Error).message;
     }
@@ -120,7 +144,7 @@ class Store {
   async start(test: TestId) {
     const providers = this.selectedAvailable();
     const options = { ...this.options[test] } as Record<string, unknown>;
-    if (test === "agent" && !options.tasks) options.tasks = this.overview?.tasks.map(task => task.id);
+    if (test === "agent" && !options.tasks) options.tasks = defaultTasks(this.overview);
     const { runId } = await post<{ runId: string }>("/api/runs", { test, providers, options });
     this.open({ id: runId, test, providers, options, status: "running", startedAt: new Date().toISOString(), results: {} });
   }
@@ -178,13 +202,19 @@ class Store {
         if (event.kind === "lines") {
           p.lines.push(...event.lines);
           if (p.lines.length > 2000) p.lines.splice(0, p.lines.length - 2000);
-        } else if (event.kind === "link") p.link = { url: event.url, port: event.port };
-        else if (event.kind === "desktop") p.desktop = { url: event.url };
+        } else if (event.kind === "link") p.link = { url: event.url, port: event.port, task: event.task };
+        else if (event.kind === "desktop") p.desktop = { url: event.url, task: event.task };
         break;
       case "agent":
         if (!p) break;
         if (event.kind === "task_done") p.tasks[event.task] = event.result;
         else { p.transcript.push(event); if (p.transcript.length > 1000) p.transcript.splice(0, p.transcript.length - 1000); }
+        break;
+      case "workload":
+        if (!p) break;
+        if (event.kind === "result") p.sections[event.section as keyof ProviderRun["sections"]] = { verdict: event.verdict, summary: event.summary, data: event.data };
+        p.transcript.push(event);
+        if (p.transcript.length > 1000) p.transcript.splice(0, p.transcript.length - 1000);
         break;
       case "done":
         view.status = event.status;

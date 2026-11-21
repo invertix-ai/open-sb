@@ -220,9 +220,14 @@ them, each in its own column:
 
 - **Speed:** create, first command, command round trips, a 1 MiB file write and read, pause, resume, destroy.
 - **Live stream:** a background process prints a line every 200 ms; see how fast lines arrive from each provider.
-- **Agent:** a Claude agent works through four small coding tasks inside each sandbox, and a check afterwards
-  says whether it passed, with time, turns, tokens and cost.
+- **Agent:** a Claude or OpenAI agent works through tasks inside each sandbox (code and tests, an HTTP server,
+  git, data analysis on a 200k-row CSV, a headless browser, a PDF report and chart, ffmpeg, a webhook
+  service), and a check afterwards says whether it passed, with time, turns, tokens and cost. A live terminal
+  shows every step, with the desktop and port 8080 embedded where the provider offers them without credentials.
 - **Load:** many sandboxes at once, with success rate, errors and latency spread.
+- **Workloads:** no model: 1, 10 and 50 MiB files written and read back with sha256 checks and MB/s, a file and
+  a background process across pause and resume, forks from a snapshot, and isolation (internet, reaching this
+  machine, secrets in the environment, root or not).
 - **Capabilities:** what each provider declares, and a quick check of the core interface.
 
 ```sh
@@ -235,11 +240,12 @@ The UI is a React app (Vite, Tailwind CSS and shadcn/ui) in `playground/web`; th
 Click a provider to enter its keys, test the connection and save them; no restart needed. Saved keys go to
 `~/.config/open-sb/credentials.json` with 0600 permissions and win over environment variables. Keys can also
 come from the same environment variables as the conformance tests (for example `E2B_API_KEY`). The agent test
-needs a Claude API key (the "Claude key" button, `ANTHROPIC_API_KEY`, or an `ant auth login` profile). Docker
+needs a Claude API key (the "Claude key" button, `ANTHROPIC_API_KEY`, or an `ant auth login` profile) or, for
+OpenAI models, an OpenAI API key (the "OpenAI key" button or `OPENAI_API_KEY`). Docker
 works when it is running. Keys stay on the server and are never sent back to the page.
 
-The agent and load tests spend real money: the agent test calls the Claude API and the load test creates many
-sandboxes at once, so both ask before starting. Every sandbox the playground creates is labelled
+The agent, load and workloads tests can spend real money: the agent test calls a model API, the load test
+creates many sandboxes at once and the workloads fork section several, so they ask before starting. Every sandbox the playground creates is labelled
 `open-sb.playground` and destroyed when its run ends or is cancelled; "Clean up sandboxes" removes any left over.
 
 Third-party code: six blocks from [Bencho](https://github.com/cabralorenzo/bencho) (MIT) in

@@ -3,7 +3,7 @@
 // export read the same log. Runs live in memory only.
 import { randomBytes } from "node:crypto";
 
-export type EventType = "log" | "metric" | "status" | "output" | "agent" | "done" | "error";
+export type EventType = "log" | "metric" | "status" | "output" | "agent" | "workload" | "done" | "error";
 
 export interface PlaygroundEvent {
   type: EventType;

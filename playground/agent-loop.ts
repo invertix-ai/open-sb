@@ -3,6 +3,7 @@
 // Messages endpoint (for server-side refusal fallback), with the client and the sandbox injected so tests can
 // drive it without the network. Inputs are validated before any tool runs; tool failures go back to Claude
 // as tool results with is_error set; parallel tool calls run together and return in one user message.
+// The tool runner, events and result shape here are shared with the OpenAI loop (openai-loop.ts).
 import Anthropic from "@anthropic-ai/sdk";
 import type {
   BetaContentBlock, BetaContentBlockParam, BetaMessage, BetaMessageParam, BetaTool, BetaToolResultBlockParam,
@@ -35,6 +36,8 @@ export interface AgentClient {
 export interface ToolOutput {
   content: string;
   isError?: boolean;
+  /** A command's raw result, for the live terminal in the UI (the model gets `content`). */
+  exec?: { exitCode: number; stdout: string; stderr: string };
 }
 
 /** Runs validated tool inputs in the sandbox. */
@@ -150,8 +153,8 @@ export type AgentEvent =
   | { kind: "turn"; turn: number; stopReason: string | null; model: string; ms: number }
   | { kind: "text"; text: string }
   | { kind: "fallback"; from: string; to: string }
-  | { kind: "tool_call"; id: string; name: string; input: string }
-  | { kind: "tool_result"; id: string; name: string; isError: boolean; content: string; ms: number }
+  | { kind: "tool_call"; id: string; name: string; input: string; command?: string; cwd?: string; path?: string; bytes?: number }
+  | { kind: "tool_result"; id: string; name: string; isError: boolean; content: string; ms: number; exitCode?: number; stdout?: string; stderr?: string }
   | { kind: "stop"; reason: string; message?: string };
 
 export type StopReason = "end_turn" | "refusal" | "max_tokens" | "max_turns" | "time_limit" | "api_error" | "no_tool_call" | string;
@@ -263,7 +266,26 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentRunR
 }
 
 async function runTool(call: BetaToolUseBlock, tools: ToolExecutor, signal: AbortSignal, emit: (event: AgentEvent) => void): Promise<BetaToolResultBlockParam> {
-  emit({ kind: "tool_call", id: call.id, name: call.name, input: truncate(JSON.stringify(call.input), 2_000) });
+  const output = await executeTool({ id: call.id, name: call.name, input: call.input }, tools, signal, emit);
+  return { type: "tool_result", tool_use_id: call.id, content: output.content, ...(output.isError ? { is_error: true } : {}) };
+}
+
+/** What the UI shows of a call before it returns: the command and its directory, or the path and size written. */
+function describeInput(name: string, input: unknown): Pick<Extract<AgentEvent, { kind: "tool_call" }>, "command" | "cwd" | "path" | "bytes"> {
+  if (!isObject(input)) return {};
+  if (name === "run_command" && typeof input.command === "string")
+    return { command: truncate(input.command, 2_000), ...(typeof input.cwd === "string" ? { cwd: input.cwd } : {}) };
+  if (name === "write_file" && typeof input.path === "string")
+    return { path: input.path, ...(typeof input.content === "string" ? { bytes: Buffer.byteLength(input.content) } : {}) };
+  return {};
+}
+
+/**
+ * Validates and runs one tool call, emitting `tool_call` before and `tool_result` after. Failures come back as
+ * an error result, never as a throw. Returns the content for the model, truncated to 12,000 characters.
+ */
+export async function executeTool(call: { id: string; name: string; input: unknown }, tools: ToolExecutor, signal: AbortSignal, emit: (event: AgentEvent) => void): Promise<ToolOutput> {
+  emit({ kind: "tool_call", id: call.id, name: call.name, input: truncate(JSON.stringify(call.input) ?? "", 2_000), ...describeInput(call.name, call.input) });
   const started = performance.now();
   let output: ToolOutput;
   try {
@@ -280,6 +302,9 @@ async function runTool(call: BetaToolUseBlock, tools: ToolExecutor, signal: Abor
     output = { content: `Tool failed: ${error instanceof Error ? error.message : String(error)}`.slice(0, 2_000), isError: true };
   }
   const content = truncate(output.content, 12_000);
-  emit({ kind: "tool_result", id: call.id, name: call.name, isError: Boolean(output.isError), content: truncate(content, 2_000), ms: Math.round(performance.now() - started) });
-  return { type: "tool_result", tool_use_id: call.id, content, ...(output.isError ? { is_error: true } : {}) };
+  emit({
+    kind: "tool_result", id: call.id, name: call.name, isError: Boolean(output.isError), content: truncate(content, 2_000), ms: Math.round(performance.now() - started),
+    ...(output.exec ? { exitCode: output.exec.exitCode, stdout: truncate(output.exec.stdout, 6_000), stderr: truncate(output.exec.stderr, 3_000) } : {}),
+  });
+  return { content, isError: output.isError };
 }

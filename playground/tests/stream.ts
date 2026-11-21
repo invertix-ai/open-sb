@@ -3,7 +3,7 @@
 // from a line's timestamp (corrected by the sandbox clock offset measured at start) to its arrival here.
 // With `ports`, an HTTP server's URL is shown when it needs no credential headers; with `desktop`, the viewer.
 import { STREAM_PORT } from "../providers.ts";
-import { createSandbox, destroySandbox, errorInfo, has, intOption, method, sleep, waitForState, type TestContext } from "../harness.ts";
+import { createSandbox, destroySandbox, emitDesktop, emitPortLink, errorInfo, has, intOption, method, sleep, waitForState, type TestContext } from "../harness.ts";
 import { summarize } from "../stats.ts";
 
 export interface StreamOptions {
@@ -112,24 +112,15 @@ async function side(ctx: TestContext, id: string, startBackground: (id: string, 
         await ctx.provider.writeFile(id, `${DIR}/www/index.html`, `<h1>open-sb playground</h1><p>Served from a ${ctx.title} sandbox.</p>`, { signal: ctx.signal });
         await startBackground(id, `python3 -m http.server ${STREAM_PORT} --bind 0.0.0.0`, { cwd: `${DIR}/www` });
       }
-      const access = await method<(id: string, port: number, o?: object) => Promise<{ url: string; headers?: Record<string, string> }>>(ctx.provider, "portUrl")(id, STREAM_PORT, { signal: ctx.signal });
-      const url = new URL(access.url);
-      // A private URL carries a credential in its headers (or its user info): it stays on the server.
-      if ((access.headers && Object.keys(access.headers).length > 0) || url.username || url.password)
-        log(`Port ${STREAM_PORT} needs credentials to open, so its URL is not shown`);
-      else ctx.emit({ type: "output", kind: "link", port: STREAM_PORT, url: access.url });
+      // emitPortLink keeps a URL that needs credential headers (or user info) on the server.
+      await emitPortLink(ctx, id, STREAM_PORT);
     } catch (error) {
       log(`Port URL failed: ${errorInfo(error).message}`, "warn");
     }
   }
   if (has(ctx.provider, "desktop")) {
     try {
-      const desktop = method<(id: string, o?: object) => Promise<{ url: string } | { provisioning: true }>>(ctx.provider, "desktop");
-      for (let tries = 0; tries < 30; tries++) {
-        const result = await desktop(id, { signal: ctx.signal });
-        if ("url" in result) { ctx.emit({ type: "output", kind: "desktop", url: result.url }); break; }
-        await sleep(2_000, ctx.signal);
-      }
+      await emitDesktop(ctx, id);
     } catch (error) {
       log(`Desktop failed: ${errorInfo(error).message}`, "warn");
     }

@@ -1,5 +1,5 @@
 // The sidebar: wordmark, every provider (logo, name, availability, capability dots, a switch to use it in
-// tests; clicking the row opens its key setup), the Claude key and the clean-up action.
+// tests; clicking the row opens its key setup), the Claude and OpenAI keys and the clean-up action.
 import { useState } from "react";
 import { Boxes, KeyRound, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -109,6 +109,12 @@ export function AppSidebar() {
             <SidebarMenuButton onClick={() => store.openSetup("claude")}>
               <KeyRound /><span>Claude key</span>
               <Badge variant="outline" className={cn("ml-auto h-5 text-[10px] font-normal", store.overview?.claude.available ? "text-success" : "text-muted-foreground")}>{store.overview?.claude.available ? "set" : "not set"}</Badge>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={() => store.openSetup("openai")}>
+              <KeyRound /><span>OpenAI key</span>
+              <Badge variant="outline" className={cn("ml-auto h-5 text-[10px] font-normal", store.overview?.openai?.available ? "text-success" : "text-muted-foreground")}>{store.overview?.openai?.available ? "set" : "not set"}</Badge>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>

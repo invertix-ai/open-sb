@@ -10,9 +10,13 @@ import { PROVIDERS, byModule } from "./providers.ts";
 
 type Env = Record<string, string | undefined>;
 
-/** The Claude credential is stored like a provider under this name. */
+/** The model credentials (Claude and OpenAI) are stored like providers under these names. */
 export const CLAUDE = "claude";
 export const CLAUDE_VARIABLES = ["ANTHROPIC_API_KEY"];
+export const OPENAI = "openai";
+export const OPENAI_VARIABLES = ["OPENAI_API_KEY"];
+/** A model API's credential, as opposed to a sandbox provider's. */
+export const isModelKey = (module: string) => module === CLAUDE || module === OPENAI;
 
 /** Longest value accepted for one variable. */
 export const MAX_VALUE_LENGTH = 4096;
@@ -53,9 +57,10 @@ function writeSaved(values: Record<string, Record<string, string>>): void {
   renameSync(temporary, credentialsPath());
 }
 
-/** Every variable a provider (or Claude) reads, required first. */
+/** Every variable a provider (or a model API) reads, required first. */
 export function variablesOf(module: string): string[] {
   if (module === CLAUDE) return CLAUDE_VARIABLES;
+  if (module === OPENAI) return OPENAI_VARIABLES;
   const entry = byModule.get(module);
   if (!entry) return [];
   return [...new Set([...entry.required, ...(entry.alternatives?.flat() ?? []), ...entry.optional])];
@@ -67,7 +72,7 @@ export class CredentialError extends Error {}
 
 /** Checks names and values from the browser; empty strings mean "leave as is" and are dropped. */
 export function validateValues(module: string, input: unknown): Record<string, string> {
-  if (module !== CLAUDE && !byModule.has(module)) throw new CredentialError(`Unknown provider ${module}`);
+  if (!isModelKey(module) && !byModule.has(module)) throw new CredentialError(`Unknown provider ${module}`);
   if (typeof input !== "object" || input === null || Array.isArray(input)) throw new CredentialError("values must be an object of variable names to strings");
   const known = new Set(variablesOf(module));
   const values: Record<string, string> = {};
@@ -138,9 +143,10 @@ export const KEY_URLS: Record<string, string> = {
   boat: "https://boat.dev/dashboard",
   agent37: "https://www.agent37.com",
   [CLAUDE]: "https://platform.claude.com/settings/keys",
+  [OPENAI]: "https://platform.openai.com/api-keys",
 };
 
-/** Status of every variable for every provider and Claude. Never includes a value. */
+/** Status of every variable for every provider and model API. Never includes a value. */
 export function credentialStatuses(base: Env): CredentialStatus[] {
   const saved = loadSaved();
   const status = (module: string, name: string): FieldStatus =>
@@ -152,6 +158,7 @@ export function credentialStatuses(base: Env): CredentialStatus[] {
   return [
     ...PROVIDERS.map(entry => describe(entry.module, entry.title, entry.required, entry.alternatives ?? [])),
     describe(CLAUDE, "Claude API key", CLAUDE_VARIABLES, []),
+    describe(OPENAI, "OpenAI API key", OPENAI_VARIABLES, []),
   ];
 }
 

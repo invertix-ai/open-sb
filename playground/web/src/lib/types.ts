@@ -1,6 +1,6 @@
 // Shapes the playground server sends (see playground/app.ts and playground/runs.ts).
 
-export type TestId = "speed" | "stream" | "agent" | "load" | "capabilities";
+export type TestId = "speed" | "stream" | "agent" | "load" | "workloads" | "capabilities";
 
 export interface ProviderStatus {
   module: string;
@@ -15,17 +15,22 @@ export interface ProviderStatus {
 
 export interface ModelInfo {
   id: string;
-  price: { input: number; output: number; cacheRead: number; cacheWrite: number };
+  /** Null when no price is on record (some OpenAI models): tokens are counted, cost shows as n/a. */
+  price: { input: number; output: number; cacheRead: number; cacheWrite: number } | null;
   fallback: boolean;
-  estimatePerTaskUsd: number;
+  estimatePerTaskUsd: number | null;
 }
+
+export type Backend = "claude" | "openai";
 
 export interface Overview {
   providers: ProviderStatus[];
   claude: { available: boolean; source: string | null; models: ModelInfo[]; efforts: string[] };
-  tasks: { id: string; title: string }[];
+  openai: { available: boolean; source: string | null; models: ModelInfo[]; defaultModel: string };
+  tasks: { id: string; title: string; heavy: boolean }[];
   checks: string[];
-  limits: { maxLoad: number; maxActiveRuns: number };
+  limits: { maxLoad: number; maxActiveRuns: number; maxForks: number };
+  workloads: { sections: WorkloadSection[]; sizes: number[] };
   liveSandboxes: number;
 }
 
@@ -43,7 +48,7 @@ export interface RunSummary {
 export type RunStatus = "running" | "done" | "cancelled" | "failed";
 
 export interface PlaygroundEvent {
-  type: "log" | "metric" | "status" | "output" | "agent" | "done" | "error";
+  type: "log" | "metric" | "status" | "output" | "agent" | "workload" | "done" | "error";
   provider?: string;
   t: number;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -60,7 +65,7 @@ export interface LoadMetric {
 
 export interface TaskResult {
   passed: boolean; wallMs: number; modelMs?: number; toolMs?: number; turns?: number; toolCalls?: number;
-  stop?: string; stopMessage?: string; fallbackUsed?: boolean; costUsd?: number;
+  stop?: string; stopMessage?: string; fallbackUsed?: boolean; costUsd?: number | null;
   tokens?: { input: number; output: number; cacheRead: number; cacheWrite: number };
   error?: { kind: string; message: string };
 }
@@ -76,13 +81,21 @@ export interface ProviderRun {
   lines: StreamLine[];
   lag?: { p50: number; p95: number; max: number; received: number; expected: number };
   clock?: { offsetMs: number; rttMs: number; precise: boolean };
-  link?: { url: string; port: number };
-  desktop?: { url: string };
+  /** For the Agent test, `task` is the task whose sandbox the URL belongs to. */
+  link?: { url: string; port: number; task?: string };
+  desktop?: { url: string; task?: string };
   load?: LoadMetric;
   checks: Record<string, { ok: boolean; ms: number; message?: string }>;
+  /** Agent and Workloads steps, in order, for the live terminal. */
   transcript: PlaygroundEvent[];
   tasks: Record<string, TaskResult>;
+  /** Workloads: each section's result once it ends. */
+  sections: Partial<Record<WorkloadSection, SectionResult>>;
 }
+
+export type WorkloadSection = "files" | "persistence" | "fork" | "isolation";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export interface SectionResult { verdict: "pass" | "fail" | "info" | "skip"; summary: string; data?: Record<string, any> }
 
 export interface View {
   runId: string;

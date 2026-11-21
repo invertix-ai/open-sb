@@ -1,6 +1,6 @@
 // The playground's own logic, without the network: statistics, the event log and its SSE replay, the
-// localhost guard, cleanup across providers, the agent tool loop driven by a fake Anthropic client, and keys
-// saved from the UI (stored in a temporary HOME).
+// localhost guard, cleanup across providers, the agent tool loops driven by fake Anthropic and OpenAI clients,
+// and keys saved from the UI (stored in a temporary HOME).
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, statSync } from "node:fs";
 import http from "node:http";
@@ -9,8 +9,12 @@ import { join } from "node:path";
 import type { AddressInfo } from "node:net";
 import { test } from "node:test";
 import type { BetaMessage } from "@anthropic-ai/sdk/resources/beta/messages/messages";
+import type { Response } from "openai/resources/responses/responses";
 import { defineProvider, type Core, type SandboxInfo } from "../src/index.ts";
 import { addUsage, echoContent, runAgentLoop, validateRunCommand, validateWriteFile, type AgentClient, type ToolExecutor } from "../playground/agent-loop.ts";
+import { OPENAI_TOOLS, runOpenAIAgentLoop, type OpenAIAgentClient } from "../playground/openai-loop.ts";
+import { agent, setOpenAIClientFactory } from "../playground/tests/agent.ts";
+import { secretValues } from "../playground/providers.ts";
 import { createApp } from "../playground/app.ts";
 import { CredentialError, credentialsPath, loadSaved, mergedEnv, removeValues, saveValues, validateValues } from "../playground/credentials.ts";
 import { LABEL, runAcrossProviders } from "../playground/harness.ts";
@@ -247,6 +251,137 @@ test("tool inputs are validated before they run", () => {
   assert.equal(validateWriteFile({ path: "/tmp/x", content: 3 }).ok, false);
 });
 
+// ---------------------------------------------------------------- OpenAI agent loop
+
+function response(output: unknown[], extra: Record<string, unknown> = {}): Response {
+  return {
+    id: "resp", object: "response", model: "gpt-6.1-sol", status: "completed", output, output_text: "", error: null, incomplete_details: null,
+    usage: { input_tokens: 1000, input_tokens_details: { cached_tokens: 400, cache_write_tokens: 100 }, output_tokens: 100, output_tokens_details: { reasoning_tokens: 20 }, total_tokens: 1100 },
+    ...extra,
+  } as unknown as Response;
+}
+const say = (text: string) => ({ type: "message", id: "m", role: "assistant", status: "completed", content: [{ type: "output_text", text, annotations: [] }] });
+const fn = (callId: string, name: string, args: unknown) => ({ type: "function_call", id: `fc_${callId}`, call_id: callId, name, arguments: JSON.stringify(args), status: "completed" });
+
+function fakeOpenAI(responses: Response[]) {
+  const requests: Record<string, unknown>[] = [];
+  const client: OpenAIAgentClient = {
+    responses: { create: async body => {
+      requests.push(structuredClone(body) as unknown as Record<string, unknown>);
+      const next = responses.shift();
+      if (!next) throw new Error("no more scripted responses");
+      return next;
+    } },
+  };
+  return { client, requests };
+}
+
+const openaiLoop = (client: OpenAIAgentClient, tools: ToolExecutor, model = "gpt-6.1-sol", maxTurns = 25) => runOpenAIAgentLoop({
+  client, model, effort: "high", prompt: "do it", system: "sys", tools, maxTurns, timeLimitMs: 60_000, signal: new AbortController().signal,
+});
+
+test("the OpenAI loop runs parallel function calls and answers each by call_id, statelessly", async () => {
+  const reasoning = { type: "reasoning", id: "rs", summary: [], encrypted_content: "opaque" };
+  const { client, requests } = fakeOpenAI([
+    response([reasoning, say("Working on it"),
+      fn("c1", "run_command", { command: "echo hi", cwd: null, timeout: null }),
+      fn("c2", "write_file", { path: "relative.txt", content: "x" }),
+      fn("c3", "write_file", { path: "/tmp/a.txt", content: "x" })]),
+    response([say("Done.")]),
+  ]);
+  const { tools, calls } = recordingTools();
+  const result = await openaiLoop(client, tools);
+
+  assert.equal(result.stop, "end_turn");
+  assert.equal(result.turns, 2);
+  assert.equal(result.toolCalls, 3);
+  assert.equal(result.finalText, "Done.");
+  assert.deepEqual(calls.sort(), ["run:echo hi", "write:/tmp/a.txt"], "nulls are dropped and invalid input never reaches the sandbox");
+
+  const first = requests[0]!;
+  assert.equal(first.model, "gpt-6.1-sol");
+  assert.equal(first.instructions, "sys");
+  assert.equal(first.store, false);
+  assert.deepEqual(first.include, ["reasoning.encrypted_content"]);
+  assert.deepEqual(first.reasoning, { effort: "high" });
+  assert.equal(first.parallel_tool_calls, true);
+  for (const tool of first.tools as { type: string; strict: boolean; parameters: { required: string[]; properties: object; additionalProperties: boolean } }[]) {
+    assert.equal(tool.type, "function");
+    assert.equal(tool.strict, true);
+    assert.equal(tool.parameters.additionalProperties, false);
+    assert.deepEqual(tool.parameters.required, Object.keys(tool.parameters.properties), "strict mode lists every property");
+  }
+  assert.deepEqual((OPENAI_TOOLS[0]!.parameters as { properties: { cwd: { type: unknown } } }).properties.cwd.type, ["string", "null"]);
+
+  const input = requests[1]!.input as { type?: string; role?: string; call_id?: string; output?: string }[];
+  assert.deepEqual(input.map(item => item.type ?? item.role), ["user", "reasoning", "message", "function_call", "function_call", "function_call", "function_call_output", "function_call_output", "function_call_output"]);
+  const outputs = input.filter(item => item.type === "function_call_output");
+  assert.deepEqual(outputs.map(item => item.call_id), ["c1", "c2", "c3"]);
+  assert.match(outputs[1]!.output!, /^Error: Invalid input/);
+
+  // input_tokens includes cached reads and cache writes: 500 uncached per response. No price for gpt-6.1-sol.
+  assert.deepEqual({ ...result.usage, costUsd: 0 }, { input: 1000, output: 200, cacheRead: 800, cacheWrite: 200, costUsd: 0 });
+  assert.ok(Number.isNaN(result.usage.costUsd), "an unpriced model has no cost");
+});
+
+test("the OpenAI loop prices gpt-6-luna, never runs tools from a refusal or a cut-off response, and stops at the turn limit", async () => {
+  const call = fn("c1", "run_command", { command: "rm -rf /tmp/x", cwd: null, timeout: null });
+  const priced = fakeOpenAI([response([say("ok")], { model: "gpt-6-luna" })]);
+  const usage = (await openaiLoop(priced.client, recordingTools().tools, "gpt-6-luna")).usage;
+  // 500 input at $0.10, 100 output at $0.50, 400 cached at $0.01, 100 written at $0.125 per MTok.
+  assert.equal(Math.round(usage.costUsd * 1e9) / 1e9, 0.0001165);
+
+  const refusal = { type: "message", id: "m", role: "assistant", status: "completed", content: [{ type: "refusal", refusal: "no" }] };
+  for (const [output, extra, stop] of [
+    [[refusal, call], {}, "refusal"],
+    [[call], { status: "incomplete", incomplete_details: { reason: "max_output_tokens" } }, "max_tokens"],
+    [[call], { status: "incomplete", incomplete_details: { reason: "content_filter" } }, "refusal"],
+  ] as const) {
+    const { client } = fakeOpenAI([response([...output], extra)]);
+    const { tools, calls } = recordingTools();
+    assert.equal((await openaiLoop(client, tools)).stop, stop);
+    assert.deepEqual(calls, []);
+  }
+  const { client } = fakeOpenAI([response([call]), response([call])]);
+  assert.equal((await openaiLoop(client, recordingTools().tools, "gpt-6.1-sol", 2)).stop, "max_turns");
+});
+
+test("the agent test runs an OpenAI model in a sandbox, streams each step, and the verify command judges it", async () => {
+  const { client, requests } = fakeOpenAI([response([fn("c1", "run_command", { command: "git init /tmp/repo", cwd: null, timeout: null })]), response([say("Done.")])]);
+  setOpenAIClientFactory(() => client);
+  const { provider, sandboxes } = fakeProvider("fake");
+  const events: Record<string, unknown>[] = [];
+  const result = await agent({
+    runId: "r1", module: "fake", title: "Fake", provider, options: { model: "gpt-6.1-sol", tasks: ["git"], maxTurns: 5 },
+    signal: new AbortController().signal, emit: event => events.push(event), env: {},
+  }) as { backend: string; tasks: Record<string, { passed: boolean; costUsd: number | null; toolCalls: number }> };
+
+  assert.equal(requests.length, 2);
+  assert.equal(result.backend, "openai");
+  assert.deepEqual({ ...result.tasks.git }, { ...result.tasks.git, passed: true, costUsd: null, toolCalls: 1 });
+  const kinds = events.filter(event => event.type === "agent").map(event => event.kind);
+  assert.deepEqual(kinds, ["task_start", "sandbox", "sandbox", "turn", "tool_call", "tool_result", "turn", "text", "stop", "verify_start", "verify", "sandbox", "task_done"]);
+  const call = events.find(event => event.kind === "tool_call")!, output = events.find(event => event.kind === "tool_result")!;
+  assert.equal(call.command, "git init /tmp/repo");
+  assert.deepEqual([output.exitCode, output.stdout, output.stderr], [0, "ok\n", ""], "the terminal gets the raw exit code and output");
+  assert.equal(sandboxes.size, 0, "the task's sandbox is destroyed");
+});
+
+test("the agent test writes a task's files and runs its setup before the agent, shown in the terminal", async () => {
+  const { client } = fakeOpenAI([response([say("Done.")])]);
+  setOpenAIClientFactory(() => client);
+  const { provider } = fakeProvider("fake");
+  const written: string[] = [], commands: string[] = [];
+  const traced = { ...provider, writeFile: async (id: string, path: string, data: Uint8Array | string) => { written.push(path); return provider.writeFile(id, path, data); },
+    exec: async (id: string, command: string, options?: object) => { commands.push(command); return provider.exec(id, command, options); } } as typeof provider;
+  const events: Record<string, unknown>[] = [];
+  await agent({ runId: "r2", module: "fake", title: "Fake", provider: traced, options: { model: "gpt-6.1-sol", tasks: ["browser"] }, signal: new AbortController().signal, emit: event => events.push(event), env: {} });
+  assert.deepEqual(written.slice(0, 2), ["/tmp/osb-site/index.html", "/tmp/open-sb-playground/setup-browser-1.sh"], "the page, then the server script (no background capability: nohup)");
+  assert.match(commands.find(command => command.startsWith("nohup"))!, /^nohup sh \/tmp\/open-sb-playground\/setup-browser-1\.sh/);
+  const kinds = events.filter(event => event.type === "agent").map(event => event.kind);
+  assert.deepEqual(kinds.slice(0, 9), ["task_start", "sandbox", "sandbox", "setup", "setup_done", "setup", "setup_done", "setup", "setup_done"]);
+});
+
 // ---------------------------------------------------------------- saved keys
 
 async function withHome(fn: (home: string) => Promise<void>) {
@@ -291,6 +426,8 @@ test("only a provider's own variables are accepted, within length limits", async
   assert.throws(() => validateValues("e2b", { E2B_API_KEY: "a\nb" }), CredentialError);
   assert.throws(() => validateValues("nope", {}), CredentialError);
   assert.deepEqual(validateValues("claude", { ANTHROPIC_API_KEY: "sk-ant-fake" }), { ANTHROPIC_API_KEY: "sk-ant-fake" });
+  assert.deepEqual(validateValues("openai", { OPENAI_API_KEY: "sk-proj-fake" }), { OPENAI_API_KEY: "sk-proj-fake" });
+  assert.throws(() => validateValues("openai", { ANTHROPIC_API_KEY: "x" }), CredentialError, "Claude's variable is not OpenAI's");
   await withHome(async () => withServer(async port => {
     const rejected = await request(port, "PUT", "/api/credentials/e2b", { values: { NODE_OPTIONS: "--inspect" } });
     assert.equal(rejected.status, 400);
@@ -317,13 +454,16 @@ test("saved values win over the environment, the API reports only where a value 
       assert.equal(field("e2b", "E2B_API_KEY"), "saved");
       assert.equal(field("daytona", "DAYTONA_API_KEY"), "env");
       assert.equal(field("modal", "MODAL_TOKEN_ID"), "unset");
+      assert.equal(field("openai", "OPENAI_API_KEY"), "unset");
 
       const providers = JSON.parse((await get(port, "/api/providers")).body) as { providers: { module: string; available: boolean }[] };
       assert.equal(providers.providers.find(entry => entry.module === "e2b")!.available, true, "a saved key makes the provider available without a restart");
 
       // A key saved after the server started is redacted too.
       saveValues("claude", { ANTHROPIC_API_KEY: "sk-ant-later-dddddddd" });
-      assert.equal(app.redact("a sk-ant-later-dddddddd b saved_value_cccccccc c"), "a [redacted] b [redacted] c");
+      saveValues("openai", { OPENAI_API_KEY: "sk-proj-later-eeeeeeee" });
+      assert.equal(app.redact("a sk-ant-later-dddddddd b saved_value_cccccccc c sk-proj-later-eeeeeeee"), "a [redacted] b [redacted] c [redacted]");
+      assert.ok(secretValues({ OPENAI_API_KEY: "sk-proj-env-ffffffff" }).includes("sk-proj-env-ffffffff"), "an OpenAI key from the environment is redacted too");
       const deleted = await request(port, "DELETE", "/api/credentials/e2b");
       assert.equal(deleted.status, 200);
       assert.equal(loadSaved().e2b, undefined);

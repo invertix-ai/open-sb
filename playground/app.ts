@@ -10,13 +10,15 @@ import { byModule, getProvider, logoFile, providerStatuses, secretValues } from 
 import { Run, RunStore } from "./runs.ts";
 import { FALLBACK_MODELS, MODELS, EFFORTS, PRICES } from "./agent-loop.ts";
 import { TASKS } from "./tasks.ts";
-import { CLAUDE, CredentialError, credentialStatuses, mergedEnv, removeValues, saveValues, savedSecretValues, validateValues } from "./credentials.ts";
-import { testClaude, testProvider } from "./connection.ts";
-import { agent, agentOptions, claudeCredentials, estimateUsd } from "./tests/agent.ts";
+import { CLAUDE, OPENAI, CredentialError, credentialStatuses, isModelKey, mergedEnv, removeValues, saveValues, savedSecretValues, validateValues } from "./credentials.ts";
+import { testClaude, testOpenAI, testProvider } from "./connection.ts";
+import { OPENAI_DEFAULT_MODEL, OPENAI_MODELS, OPENAI_PRICES } from "./openai-loop.ts";
+import { agent, agentOptions, backendOf, claudeCredentials, estimateUsd, openaiCredentials } from "./tests/agent.ts";
 import { capabilities, CHECKS } from "./tests/capabilities.ts";
 import { load, loadOptions, MAX_LOAD } from "./tests/load.ts";
 import { speed, speedOptions } from "./tests/speed.ts";
 import { stream, streamOptions } from "./tests/stream.ts";
+import { FILE_SIZES_MIB, MAX_FORKS, WORKLOAD_SECTIONS, workloads, workloadsOptions } from "./tests/workloads.ts";
 
 type Env = Record<string, string | undefined>;
 
@@ -25,6 +27,7 @@ export const TESTS: Record<string, { run: TestFn; options: (raw: Record<string, 
   stream: { run: stream, options: streamOptions },
   agent: { run: agent, options: agentOptions },
   load: { run: load, options: loadOptions },
+  workloads: { run: workloads, options: workloadsOptions },
   capabilities: { run: capabilities, options: () => ({}) },
 };
 
@@ -37,7 +40,8 @@ const TYPES: Record<string, string> = {
   html: "text/html; charset=utf-8", js: "text/javascript; charset=utf-8", css: "text/css; charset=utf-8",
   svg: "image/svg+xml", png: "image/png", woff2: "font/woff2", woff: "font/woff",
 };
-const CSP = "default-src 'self'; img-src 'self' data:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'";
+// Frames: the live desktop viewer and port previews, which providers serve over HTTPS.
+const CSP = "default-src 'self'; img-src 'self' data:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-src https:; frame-ancestors 'none'; base-uri 'none'";
 
 class HttpError extends Error {
   readonly status: number;
@@ -110,8 +114,13 @@ export function createApp(options: AppOptions) {
       if (!status) throw new HttpError(400, `Unknown provider ${name}`);
       if (!status.available) throw new HttpError(400, `${status.title} is not available: ${status.howToEnable}`);
     }
-    if (test === "agent" && !(await claudeCredentials(env)).available)
-      throw new HttpError(400, "No Claude credentials: add a key with Claude key in the playground, set ANTHROPIC_API_KEY, or run `ant auth login`");
+    if (test === "agent") {
+      const model = agentOptions(typeof input.options === "object" && input.options !== null ? input.options as Record<string, unknown> : {}).model;
+      if (backendOf(model) === "openai" && !openaiCredentials(env).available)
+        throw new HttpError(400, "No OpenAI credentials: add a key with OpenAI key in the playground, or set OPENAI_API_KEY");
+      if (backendOf(model) === "claude" && !(await claudeCredentials(env)).available)
+        throw new HttpError(400, "No Claude credentials: add a key with Claude key in the playground, set ANTHROPIC_API_KEY, or run `ant auth login`");
+    }
     if (runs.active().length >= MAX_ACTIVE_RUNS) throw new HttpError(429, `At most ${MAX_ACTIVE_RUNS} runs at a time; wait for one to finish or cancel it`);
     const raw = typeof input.options === "object" && input.options !== null && !Array.isArray(input.options) ? input.options as Record<string, unknown> : {};
     const run = new Run(test, requested, spec.options(raw) as Record<string, unknown>, redactor(env));
@@ -174,19 +183,25 @@ export function createApp(options: AppOptions) {
         models: MODELS.map(id => ({ id, price: PRICES[id], fallback: FALLBACK_MODELS.has(id), estimatePerTaskUsd: estimateUsd(id, 1) })),
         efforts: EFFORTS,
       },
-      tasks: TASKS.map(task => ({ id: task.id, title: task.title })),
+      openai: {
+        ...openaiCredentials(env),
+        models: OPENAI_MODELS.map(id => ({ id, price: OPENAI_PRICES[id] ?? null, fallback: false, estimatePerTaskUsd: estimateUsd(id, 1) })),
+        defaultModel: OPENAI_DEFAULT_MODEL,
+      },
+      tasks: TASKS.map(task => ({ id: task.id, title: task.title, heavy: Boolean(task.heavy) })),
       checks: CHECKS,
-      limits: { maxLoad: MAX_LOAD, maxActiveRuns: MAX_ACTIVE_RUNS },
+      limits: { maxLoad: MAX_LOAD, maxActiveRuns: MAX_ACTIVE_RUNS, maxForks: MAX_FORKS },
+      workloads: { sections: WORKLOAD_SECTIONS, sizes: FILE_SIZES_MIB },
       liveSandboxes: liveCount(),
     };
   }
 
   /** Saved values for a module merged with candidate ones, as the environment a test or a run would see. */
   const candidateEnv = (module: string, values: Record<string, string>) => ({ ...currentEnv(), ...values });
-  const testWith = (module: string, env: Env) => module === CLAUDE ? testClaude(env) : testProvider(module, env);
+  const testWith = (module: string, env: Env) => module === CLAUDE ? testClaude(env) : module === OPENAI ? testOpenAI(env) : testProvider(module, env);
 
   async function credentials(req: http.IncomingMessage, res: http.ServerResponse, method: string, module: string, test: boolean) {
-    if (module !== CLAUDE && !byModule.has(module)) throw new HttpError(404, `Unknown provider ${module}`);
+    if (!isModelKey(module) && !byModule.has(module)) throw new HttpError(404, `Unknown provider ${module}`);
     const status = () => credentialStatuses(baseEnv).find(entry => entry.module === module);
     try {
       if (test && method === "POST") {

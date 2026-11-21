@@ -1,4 +1,4 @@
-// Key setup for one provider (or Claude): each variable's status (never its value), inputs to set or replace
+// Key setup for one provider (or a model API: Claude, OpenAI): each variable's status (never its value), inputs to set or replace
 // it, Test connection, Save (tests first; "Save anyway" when the test fails) and Remove saved keys. Typed
 // values leave the page state once saved.
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -93,18 +93,18 @@ export function SetupSheet() {
   }
 
   const saved = entry?.fields.some(field => field.status === "saved");
-  const isClaude = module === "claude";
+  const isModelKey = module === "claude" || module === "openai";
 
   return (
     <Sheet open={Boolean(module)} onOpenChange={open => { if (!open) store.openSetup(null); }}>
       <SheetContent className="w-full gap-0 sm:max-w-md">
         <SheetHeader className="border-b pb-4">
           <SheetTitle className="flex items-center gap-2.5">
-            {module && !isClaude && <ProviderLogo module={module} size={28} />}
-            Set up {entry?.title ?? (isClaude ? "Claude API key" : store.provider(module ?? "")?.title)}
+            {module && !isModelKey && <ProviderLogo module={module} size={28} />}
+            Set up {entry?.title ?? (module === "claude" ? "Claude API key" : module === "openai" ? "OpenAI API key" : store.provider(module ?? "")?.title)}
           </SheetTitle>
           <SheetDescription>
-            {isClaude ? "Used by the Agent test." : "Keys are tested with a cheap call that creates nothing."}
+            {isModelKey ? "Used by the Agent test. Test connection looks up one model, which costs nothing." : "Keys are tested with a cheap call that creates nothing."}
             {entry?.keyUrl && safeUrl(entry.keyUrl) && (
               <a href={safeUrl(entry.keyUrl)} target="_blank" rel="noopener noreferrer" className="ml-1 inline-flex items-center gap-1 text-foreground underline underline-offset-4">
                 Get a key <ExternalLink className="size-3" />

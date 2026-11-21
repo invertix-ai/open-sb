@@ -1,15 +1,16 @@
-// Live stream: a live lag chart across providers, a lag comparison, and per provider a terminal with the lines
-// as they arrive, plus the port link and desktop viewer when the provider has them.
-import { useEffect, useLayoutEffect, useRef } from "react";
-import { ExternalLink, MonitorPlay } from "lucide-react";
-import { Button } from "@/components/ui/button";
+// Live stream: a live lag chart across providers, a lag comparison, and per provider a live terminal with the
+// lines as they arrive (with a Follow switch), plus the port 8080 page and the desktop viewer embedded when the
+// provider has them and they open without credentials.
+import { Globe, MonitorPlay } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { ComparisonBars, LagChart } from "@/components/charts";
+import { LivePreview } from "@/components/LivePreview";
+import { TerminalFrame } from "@/components/LiveTerminal";
 import { CounterStat, ProviderCard } from "@/components/ProviderCard";
 import { ChartCard, Field, TestLayout, Waiting } from "@/components/TestLayout";
-import { colorFor, fmt, safeUrl } from "@/lib/format";
+import { colorFor, fmt } from "@/lib/format";
 import { useStore } from "@/lib/store";
-import type { StreamLine, View } from "@/lib/types";
+import type { ProviderRun, StreamLine, View } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { NumberInput, winnerOf } from "./SpeedTab";
 
@@ -23,26 +24,20 @@ function lineText(text: string) {
   return `${at.toTimeString().slice(0, 8)}.${String(at.getMilliseconds()).padStart(3, "0")}  ${match[2]}`;
 }
 
-function Terminal({ lines }: { lines: StreamLine[] }) {
-  const box = useRef<HTMLDivElement | null>(null);
+function Terminal({ lines, run, title }: { lines: StreamLine[]; run: ProviderRun; title: string }) {
   const shown = lines.slice(-300);
-  // Opens at the newest line; afterwards it follows new lines only while the reader is at the bottom.
-  useLayoutEffect(() => { if (box.current) box.current.scrollTop = box.current.scrollHeight; }, []);
-  useEffect(() => {
-    const el = box.current;
-    if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 60) el.scrollTop = el.scrollHeight;
-  }, [lines.length]);
+  const last = shown.at(-1)?.n ?? 0;
   return (
-    <div ref={box} className="h-64 overflow-y-auto rounded-lg border bg-zinc-950 p-3 font-mono text-[11.5px] leading-relaxed text-zinc-300">
-      {shown.length === 0 && <span className="text-zinc-500">Waiting for output...</span>}
-      {shown.map(line => (
+    <TerminalFrame title={title} live={run.status === "running"} changeKey={last} className="h-72"
+      meta={run.lag ? `${run.lag.received}/${run.lag.expected} lines` : undefined}>
+      {shown.length > 0 ? shown.map(line => (
         <div key={line.n} className="grid grid-cols-[2.25rem_1fr_auto] gap-2">
           <span className="text-right text-zinc-600">{line.n}</span>
           <span className="truncate">{lineText(line.text)}</span>
           <span className={cn("tabular", lagTone(line.lagMs) === "good" ? "text-emerald-400" : lagTone(line.lagMs) === "warn" ? "text-amber-400" : "text-rose-400")}>{fmt(line.lagMs, "ms")}</span>
         </div>
-      ))}
-    </div>
+      )) : null}
+    </TerminalFrame>
   );
 }
 
@@ -60,7 +55,7 @@ export function StreamTab() {
       card={(view, module) => {
         const run = view.p[module]!;
         const lag = run.lag;
-        const link = run.link && safeUrl(run.link.url), desktop = run.desktop && safeUrl(run.desktop.url);
+        const live = run.status === "running";
         return (
           <ProviderCard module={module} run={run}>
             {!lag && run.status === "running" && <Waiting lines={2} />}
@@ -74,13 +69,9 @@ export function StreamTab() {
                 <Progress value={(lag.received / lag.expected) * 100} />
               </>
             )}
-            {(run.lines.length > 0 || run.status === "running") && <Terminal lines={run.lines} />}
-            {(link || desktop) && (
-              <div className="flex flex-wrap gap-2">
-                {link && <Button asChild size="sm" variant="outline"><a href={link} target="_blank" rel="noopener noreferrer"><ExternalLink />Open port {run.link!.port}</a></Button>}
-                {desktop && <Button asChild size="sm" variant="outline"><a href={desktop} target="_blank" rel="noopener noreferrer"><MonitorPlay />Open desktop</a></Button>}
-              </div>
-            )}
+            {(run.lines.length > 0 || run.status === "running") && <Terminal lines={run.lines} run={run} title={`tail -f stream.log @ ${store.provider(module)?.title ?? module}`} />}
+            {run.desktop && <LivePreview title="Desktop" icon={<MonitorPlay />} url={run.desktop.url} live={live} />}
+            {run.link && <LivePreview title={`Port ${run.link.port}`} icon={<Globe />} url={run.link.url} live={live} />}
           </ProviderCard>
         );
       }}

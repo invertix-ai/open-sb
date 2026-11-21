@@ -179,6 +179,6 @@ export function getProvider(module: string, env: Env): AnyProvider {
 /** Every credential value the registry reads, so the server can redact them from anything it sends. */
 export function secretValues(env: Env): string[] {
   const names = new Set(PROVIDERS.flatMap(entry => [...entry.required, ...(entry.alternatives?.flat() ?? []), ...entry.optional]));
-  for (const name of ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"]) names.add(name);
+  for (const name of ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "OPENAI_API_KEY"]) names.add(name);
   return [...names].map(name => env[name]).filter((value): value is string => typeof value === "string" && value.length >= 8);
 }

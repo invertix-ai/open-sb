@@ -1,6 +1,7 @@
 // What every playground test shares: the per-provider context, labelled sandbox creation with guaranteed
-// cleanup, waiting for a state, error mapping for display, and running one test across providers in parallel
-// so a failure in one provider never stops the others.
+// cleanup, waiting for a state, error mapping for display, the live views (port preview and desktop viewer)
+// for the UI, and running one test across providers in parallel so a failure in one provider never stops
+// the others.
 import { SandboxError } from "../src/errors.ts";
 import type { AnyProvider, SandboxState } from "../src/types.ts";
 import type { Emit, Run } from "./runs.ts";
@@ -61,11 +62,11 @@ async function acquire(module: string, signal: AbortSignal): Promise<() => void>
   return () => { slot.count--; slot.queue.shift()?.(); };
 }
 
-/** Creates a labelled sandbox and records it so the run destroys it even if the test does not. */
-export async function createSandbox(ctx: TestContext, extraLabels: Record<string, string> = {}): Promise<string> {
+/** Creates a labelled sandbox (from `image`, such as a snapshot, when given) and records it so the run destroys it even if the test does not. */
+export async function createSandbox(ctx: TestContext, extraLabels: Record<string, string> = {}, image?: string): Promise<string> {
   const release = await acquire(ctx.module, ctx.signal);
   try {
-    const info = await ctx.provider.create({ labels: { [LABEL]: ctx.runId, ...extraLabels }, signal: ctx.signal });
+    const info = await ctx.provider.create({ labels: { [LABEL]: ctx.runId, ...extraLabels }, ...(image ? { image } : {}), signal: ctx.signal });
     track(ctx.module, info.id, ctx.runId);
     return info.id;
   } finally {
@@ -107,6 +108,29 @@ export function method<T>(provider: AnyProvider, name: string): T {
   const fn = (provider as unknown as Record<string, unknown>)[name];
   if (typeof fn !== "function") throw new Error(`${provider.name} has no ${name}()`);
   return (fn as (...args: unknown[]) => unknown).bind(provider) as T;
+}
+
+/**
+ * Emits a port's URL for the UI (`output` event, kind `link`) when it opens without credentials. A private URL
+ * carries a credential in its headers (or its user info): it stays on the server, and only a log line says so.
+ */
+export async function emitPortLink(ctx: TestContext, id: string, port: number, signal = ctx.signal, extra: Record<string, unknown> = {}): Promise<void> {
+  const access = await method<(id: string, port: number, o?: object) => Promise<{ url: string; headers?: Record<string, string> }>>(ctx.provider, "portUrl")(id, port, { signal });
+  const url = new URL(access.url);
+  if ((access.headers && Object.keys(access.headers).length > 0) || url.username || url.password)
+    ctx.emit({ type: "log", level: "info", message: `Port ${port} needs credentials to open, so its URL is not shown` });
+  else ctx.emit({ type: "output", kind: "link", port, url: access.url, ...extra });
+}
+
+/** Waits for the desktop viewer (up to a minute while it provisions) and emits its URL (`output`, kind `desktop`). */
+export async function emitDesktop(ctx: TestContext, id: string, signal = ctx.signal, extra: Record<string, unknown> = {}): Promise<void> {
+  const desktop = method<(id: string, o?: object) => Promise<{ url: string } | { provisioning: true }>>(ctx.provider, "desktop");
+  for (let tries = 0; tries < 30; tries++) {
+    const result = await desktop(id, { signal });
+    if ("url" in result) { ctx.emit({ type: "output", kind: "desktop", url: result.url, ...extra }); return; }
+    await sleep(2_000, signal);
+  }
+  ctx.emit({ type: "log", level: "warn", message: "The desktop was still provisioning after a minute" });
 }
 
 /**
