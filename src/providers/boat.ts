@@ -12,6 +12,8 @@ export interface BoatOptions {
   /** Lifetime given to new and resumed sandboxes. Default 900 s; extend with `setTtl`. */
   ttlSeconds?: number;
   name?: string;
+  /** Override for tests: used to exchange a port URL's token for its cookie. */
+  fetch?: typeof fetch;
 }
 
 const STATES: Record<string, SandboxState> = {
@@ -31,6 +33,7 @@ const withEnv = (command: string, env?: Record<string, string>) => {
 export function boat(options: BoatOptions = {}) {
   const name = options.name ?? "boat";
   const ttlSeconds = options.ttlSeconds ?? 900;
+  const fetchImpl = options.fetch ?? globalThis.fetch;
   let api = options.client;
   const client = () => api ??= new BoatApi(new Configuration({
     basePath: "https://boat.dev/api/v1",
@@ -162,11 +165,32 @@ export function boat(options: BoatOptions = {}) {
       await call((b, init) => b.update({ sandboxId: id, updateSandboxRequest: { ttlSeconds: seconds } }, init), callOptions.signal);
     },
 
+    /**
+     * A private URL. Boat swaps its `_token` query for a `_port_auth` cookie on the first request (a 302), which
+     * WebSockets and fetch cannot keep, so the cookie comes back as a header and the URL loses the token.
+     * Localhost relay first (services bound to 127.0.0.1); a service on 0.0.0.0 makes Boat refuse it, so then direct.
+     */
     async portUrl(id, port, callOptions = {}) {
-      const result = await call((b, init) => b.hostPort({ sandboxId: id, hostPortRequest: { port, localhost: true } }, init), callOptions.signal);
+      const host = (localhost: boolean) => call((b, init) => b.hostPort({ sandboxId: id, hostPortRequest: { port, localhost } }, init), callOptions.signal);
+      const result = await host(true).catch(error => {
+        if (error instanceof SandboxError && error.code === "localhost_relay_failed") return host(false);
+        throw error;
+      });
       if (!result.url || result.isProtected === false || result.access === "public")
         throw new SandboxError("rejected", name, { code: "port_not_private" });
-      return { url: result.url };
+      const url = new URL(result.url);
+      if (!url.searchParams.has("_token")) return { url: result.url };
+      let response: Response;
+      try {
+        response = await fetchImpl(url, { redirect: "manual", signal: callOptions.signal ? AbortSignal.any([callOptions.signal, AbortSignal.timeout(30_000)]) : AbortSignal.timeout(30_000) });
+      } catch {
+        throw httpError(name, null, "network");
+      }
+      await response.body?.cancel();
+      const cookie = response.headers.getSetCookie().map(value => value.split(";")[0]).filter(value => value.startsWith("_port_auth=")).join("; ");
+      if (!cookie) return { url: result.url };
+      url.searchParams.delete("_token");
+      return { url: url.href, headers: { cookie } };
     },
 
     async ssh(id, publicKey, callOptions = {}) {
