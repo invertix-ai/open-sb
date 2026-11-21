@@ -10,7 +10,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { EFFORTS, FALLBACK_MODELS, MODELS, PRICES, runAgentLoop, truncate, type AgentClient, type Effort, type ToolExecutor } from "../agent-loop.ts";
 import { OPENAI_PRICES, isOpenAIModel, runOpenAIAgentLoop, type OpenAIAgentClient } from "../openai-loop.ts";
-import { createSandbox, destroySandbox, elapsed, emitDesktop, emitPortLink, errorInfo, has, intOption, method, waitForState, type TestContext } from "../harness.ts";
+import { createSandbox, desktopImage, destroySandbox, elapsed, emitDesktop, emitPortLink, errorInfo, has, intOption, method, waitForState, type TestContext } from "../harness.ts";
 import { DEFAULT_TASKS, SYSTEM_PROMPT, taskById, type AgentTask } from "../tasks.ts";
 
 export type Backend = "claude" | "openai";
@@ -133,7 +133,8 @@ export async function agent(ctx: TestContext) {
     const sideViews: Promise<void>[] = [];
     try {
       emit({ kind: "sandbox", state: "creating" });
-      id = await createSandbox(ctx);
+      // The live desktop view needs an image with a desktop (E2B: its `desktop` template instead of `base`).
+      id = await createSandbox(ctx, {}, has(ctx.provider, "desktop") ? desktopImage(ctx) : undefined);
       await waitForState(ctx, id, "running");
       emit({ kind: "sandbox", state: "ready", id, ms: elapsed(started) });
       await prepareTask(ctx, id, task, emit);

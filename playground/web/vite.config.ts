@@ -3,12 +3,15 @@
 import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, type ProxyOptions } from "vite";
 
-const api = { target: "http://127.0.0.1:4317", changeOrigin: true,
+// `ws`: desktop relays (private E2B sandboxes) are WebSockets under /api.
+const api: ProxyOptions = { target: "http://127.0.0.1:4317", changeOrigin: true, ws: true,
   // The API refuses foreign origins; the dev page's origin is the Vite port, so the proxy drops it.
-  configure: (proxy: { on: (event: "proxyReq", fn: (req: { removeHeader: (name: string) => void }) => void) => void }) =>
-    proxy.on("proxyReq", req => req.removeHeader("origin")) };
+  configure: proxy => {
+    proxy.on("proxyReq", req => req.removeHeader("origin"));
+    proxy.on("proxyReqWs", req => req.removeHeader("origin"));
+  } };
 
 export default defineConfig({
   root: fileURLToPath(new URL(".", import.meta.url)),

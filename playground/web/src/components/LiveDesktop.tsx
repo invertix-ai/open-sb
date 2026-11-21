@@ -10,6 +10,21 @@ import { cn } from "@/lib/utils";
 
 type Status = "connecting" | "connected" | "disconnected" | "ended";
 
+/**
+ * The stream's WebSocket address: the provider's own `wss:` endpoint, or this server's relay (a same-origin
+ * path) for providers whose access needs headers. Anything else, or a URL carrying user info, is refused.
+ */
+export function desktopSocketUrl(websocketUrl: string, page: string = window.location.href): URL {
+  const url = new URL(websocketUrl, page);
+  const origin = new URL(page);
+  if (url.protocol === "http:" || url.protocol === "https:") {
+    if (url.origin !== origin.origin || !url.pathname.startsWith("/api/desktop-relay/")) throw new Error("Not a desktop relay");
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  } else if (url.protocol !== "wss:") throw new Error("Desktop streams must use wss:");
+  if (url.username || url.password) throw new Error("Desktop URLs must not carry user info");
+  return url;
+}
+
 /** A real RFB stream. Viewer-only providers retain the iframe fallback. */
 export function LiveDesktop({ connection, live, onReconnect }: {
   connection: DesktopConnection;
@@ -37,13 +52,14 @@ function RfbDesktop({ connection, live, onReconnect }: {
   const control = useRef(false);
   const refreshing = useRef(false);
   const connectionKey = useRef("");
-  connectionKey.current = `${connection.websocketUrl}\n${connection.expiresAt ?? ""}`;
+  connectionKey.current = `${connection.websocketUrl}\n${connection.expiresAt ?? ""}\n${connection.password ?? ""}`;
   const [status, setStatus] = useState<Status>(live ? "connecting" : "ended");
   const [error, setError] = useState("");
   const [allowControl, setAllowControl] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [generation, setGeneration] = useState(0);
   const href = safeUrl(connection.url);
+  const password = connection.password;
 
   // noVNC's mouse-capture overlay lives under body, outside the fullscreen top layer. In fullscreen,
   // the canvas can consume mouseup before that overlay sees it. Release through its window listener
@@ -97,8 +113,7 @@ function RfbDesktop({ connection, live, onReconnect }: {
     if (!live) { setStatus("ended"); return; }
     let url: URL;
     try {
-      url = new URL(connection.websocketUrl!);
-      if (url.protocol !== "wss:" || url.username || url.password) throw new Error();
+      url = desktopSocketUrl(connection.websocketUrl!);
     } catch {
       setStatus("disconnected"); setError("The provider returned an invalid desktop connection."); return;
     }
@@ -113,7 +128,11 @@ function RfbDesktop({ connection, live, onReconnect }: {
     // Load the decoder only for an open desktop, not with the rest of the playground bundle.
     void import("@novnc/novnc").then(({ default: RemoteFrameBuffer }) => {
       if (disposed || !screen.current) return;
-      rfb = new RemoteFrameBuffer(screen.current, url.href, { shared: true });
+      rfb = new RemoteFrameBuffer(screen.current, url.href, {
+        shared: true,
+        // VNC authentication reads only the password; the types also name XVP's username and target.
+        ...(password ? { credentials: { username: "", target: "", password } } : {}),
+      });
       client.current = rfb;
       rfb.scaleViewport = true;
       rfb.resizeSession = false;
@@ -156,7 +175,7 @@ function RfbDesktop({ connection, live, onReconnect }: {
       rfb?.disconnect();
       if (client.current === rfb) client.current = null;
     };
-  }, [connection.websocketUrl, connection.expiresAt, live, generation, refresh, releaseInputCapture]);
+  }, [connection.websocketUrl, connection.expiresAt, password, live, generation, refresh, releaseInputCapture]);
 
   const connected = live && status === "connected";
   const toggleFullscreen = () => {

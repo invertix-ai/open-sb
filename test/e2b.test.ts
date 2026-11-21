@@ -82,6 +82,15 @@ test("e2b reports exit codes, reconnects stale sandboxes and maps errors", async
   await assert.rejects(provider.pause("s1", { signal: aborted }), /stop/);
 });
 
+test("e2b background processes have no command timeout, so they outlive E2B's 60 s default", async () => {
+  const { calls, Sandbox, setRuns } = fake();
+  setRuns([async () => ({ disconnect: async () => {} })]);
+  await e2b({ apiKey: "key", Sandbox }).startBackground("s1", "sleep 600");
+  const run = calls.find(call => call.method === "run")!;
+  assert.equal((run.args[1] as { background: boolean; timeoutMs: number }).background, true);
+  assert.equal((run.args[1] as { timeoutMs: number }).timeoutMs, 0);
+});
+
 test("e2b passes idempotency keys in the form E2B accepts", async () => {
   const { calls, Sandbox } = fake();
   const provider = e2b({ apiKey: "key", Sandbox });
@@ -91,4 +100,66 @@ test("e2b passes idempotency keys in the form E2B accepts", async () => {
   assert.equal(keys[0], "0d5c-ok");
   assert.match(keys[1]!, /^[a-f0-9]{64}$/);
   assert.deepEqual((calls[0]!.args[0] as { metadata: unknown }).metadata, { a: "b" });
+});
+
+test("e2b desktop starts the stream on a running sandbox and returns password-protected access", async () => {
+  const calls: { command: string; envs?: Record<string, string> }[] = [];
+  const states: Record<string, string> = { live: "running", private: "running", asleep: "paused", plain: "running" };
+  let output = "open-sb:password:Ab3dEf9h\n";
+  const connection = (sandboxId: string) => ({
+    sandboxId,
+    trafficAccessToken: sandboxId === "private" ? "traffic-token" : undefined,
+    getHost: (port: number) => `${port}-${sandboxId}.e2b.app`,
+    commands: { async run(command: string, opts: { envs?: Record<string, string> }) {
+      calls.push({ command, envs: opts.envs });
+      if (sandboxId === "plain") throw new CommandExitError({ exitCode: 3, stdout: "open-sb:no-desktop\n", stderr: "" });
+      return { exitCode: 0, stdout: output, stderr: "" };
+    } },
+  });
+  const Fake = {
+    async connect(id: string) { return connection(id); },
+    async getInfo(id: string) { return sandboxInfo(id, {}, states[id]); },
+  } as unknown as typeof Sandbox;
+  const provider = e2b({ apiKey: "key", Sandbox: Fake, desktopResolution: [1280, 800] });
+  assert.ok(provider.capabilities.includes("desktop"));
+
+  const access = await provider.desktop("live");
+  assert.ok("url" in access);
+  const url = new URL(access.url);
+  assert.equal(url.origin, "https://6080-live.e2b.app");
+  assert.equal(url.pathname, "/vnc.html");
+  assert.equal(url.searchParams.get("view_only"), "true");
+  assert.equal(url.searchParams.get("path"), "websockify");
+  assert.equal(url.searchParams.get("password"), null, "the password stays out of the query, which servers log");
+  assert.equal(new URLSearchParams(url.hash.slice(1)).get("password"), "Ab3dEf9h");
+  assert.equal(access.websocketUrl, "wss://6080-live.e2b.app/websockify");
+  assert.equal(access.password, "Ab3dEf9h");
+  assert.equal(access.headers, undefined);
+  assert.equal(access.expiresAt, undefined, "access lasts as long as the sandbox; there is nothing to renew");
+  assert.deepEqual(calls[0]!.envs, { OPEN_SB_SCREEN: "1280x800" });
+
+  const again = await provider.desktop("live");
+  assert.ok("url" in again && again.password === access.password, "reconnecting returns the same stream");
+
+  const privateAccess = await provider.desktop("private");
+  assert.ok("url" in privateAccess);
+  assert.deepEqual(privateAccess.headers, { "e2b-traffic-access-token": "traffic-token" });
+
+  const before = calls.length;
+  await assert.rejects(provider.desktop("asleep"), (error: unknown) => error instanceof SandboxError && error.code === "desktop_requires_running_sandbox");
+  assert.equal(calls.length, before, "viewing does not resume a paused sandbox");
+  await assert.rejects(provider.desktop("plain"), (error: unknown) =>
+    error instanceof SandboxError && error.kind === "rejected" && error.code === "desktop_not_in_template" && /desktop" template/.test(error.message));
+  output = "something else";
+  await assert.rejects(provider.desktop("live"), (error: unknown) => error instanceof SandboxError && error.kind === "unavailable");
+});
+
+test("e2b desktop options are checked, and private traffic is passed through to create", async () => {
+  for (const size of [[0, 768], [1024.5, 768], [1024, 10_000]] as const)
+    assert.throws(() => e2b({ desktopResolution: size }), /desktopResolution/);
+  const { calls, Sandbox } = fake();
+  await e2b({ apiKey: "key", Sandbox, publicTraffic: false }).create();
+  await e2b({ apiKey: "key", Sandbox }).create();
+  const creates = calls.filter(call => call.method === "create").map(call => (call.args[0] as { network?: unknown }).network);
+  assert.deepEqual(creates, [{ allowPublicTraffic: false }, undefined]);
 });

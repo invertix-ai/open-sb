@@ -89,6 +89,13 @@ export interface DesktopConnection {
   websocketUrl?: string;
   /** When access expires. Call `desktop` again to reconnect with fresh credentials. */
   expiresAt?: Date;
+  /** The RFB (VNC) password `websocketUrl` asks for; pass it as noVNC's `credentials.password`. `url` already carries it. */
+  password?: string;
+  /**
+   * Headers every request to `url` and `websocketUrl` must carry (a private network gateway's token). A browser
+   * cannot add headers to a page load or a WebSocket: relay the connection through your server, which adds them.
+   */
+  headers?: Record<string, string>;
 }
 
 /** Starts a graphical desktop when needed and returns viewer access. */

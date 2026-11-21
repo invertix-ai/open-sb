@@ -37,6 +37,8 @@ export interface ProviderEntry {
   optional: string[];
   /** Builds the provider. Constructing one makes no network calls. */
   build(env: Env): AnyProvider;
+  /** Image for sandboxes that show a desktop, when the default image has none. */
+  desktopImage?(env: Env): string;
 }
 
 const PLACEHOLDER = "unused";
@@ -46,8 +48,12 @@ const opt = (value: string | undefined) => value || undefined;
 export const STREAM_PORT = 8080;
 
 export const PROVIDERS: ProviderEntry[] = [
-  { module: "e2b", title: "E2B", kind: "Firecracker microVMs", required: ["E2B_API_KEY"], optional: ["E2B_TEMPLATE"],
-    build: env => e2b({ apiKey: env.E2B_API_KEY, template: opt(env.E2B_TEMPLATE) }) },
+  { module: "e2b", title: "E2B", kind: "Firecracker microVMs", required: ["E2B_API_KEY"], optional: ["E2B_TEMPLATE", "E2B_DESKTOP_TEMPLATE", "E2B_PUBLIC_TRAFFIC"],
+    // E2B_PUBLIC_TRAFFIC=false makes port URLs private (the desktop then goes through the playground's relay).
+    build: env => e2b({ apiKey: env.E2B_API_KEY, template: opt(env.E2B_TEMPLATE),
+      publicTraffic: env.E2B_PUBLIC_TRAFFIC === "false" ? false : env.E2B_PUBLIC_TRAFFIC === "true" ? true : undefined }),
+    // E2B's `base` template has no desktop; its `desktop` template has Xvfb, XFCE, x11vnc, noVNC and Chrome.
+    desktopImage: env => env.E2B_DESKTOP_TEMPLATE || "desktop" },
   { module: "daytona", title: "Daytona", kind: "Fast dev sandboxes", required: ["DAYTONA_API_KEY"], optional: ["DAYTONA_API_URL", "DAYTONA_TARGET"],
     build: env => daytona({ apiKey: env.DAYTONA_API_KEY, apiUrl: opt(env.DAYTONA_API_URL), target: opt(env.DAYTONA_TARGET) }) },
   { module: "vercel", title: "Vercel Sandbox", kind: "Ephemeral microVMs", required: ["VERCEL_TOKEN", "VERCEL_TEAM_ID", "VERCEL_PROJECT_ID"],
