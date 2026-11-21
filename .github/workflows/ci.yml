@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       providers:
-        description: "Cloud providers to run the conformance suite against (space separated, e.g. "e2b daytona"; "all" runs every one)"
+        description: "Cloud providers to run the conformance suite against, space separated (e.g. e2b daytona), or all"
         default: ""
 permissions: { contents: read }
 jobs:
