@@ -150,6 +150,8 @@ Every failure is a `SandboxError` with a `kind`: `unavailable` (an outage, so fa
 | [Agent37](https://agent37.com) | `@invertix/open-sb/agent37` | nothing | pause, persistentDisk, ports, background | passes |
 | [Docker](https://www.docker.com) | `@invertix/open-sb/docker` | nothing; needs Docker running | pause, persistentDisk, snapshot, background | passes, every CI run |
 
+Logos are trademarks of their owners and are shown only to identify each provider.
+
 Each provider's SDK is an optional peer dependency: install only the ones you use. Docker is handy for local
 development and tests: no account, no cost, same interface.
 
@@ -210,6 +212,30 @@ time. open-sb focuses on running a fleet across providers:
   listed provider has them, at type-check, at startup and with `open-sb check` in CI.
 - **Failover.** Providers are tried in order and only outages move on, so a second provider is a real backup.
 - **One bar for every provider.** The same conformance suite runs against each real service, so claims are tested, not trusted.
+
+## Playground
+
+A local dashboard for trying providers side by side. Pick a few providers and run the same test on all of
+them, each in its own column:
+
+- **Speed:** create, first command, command round trips, a 1 MiB file write and read, pause, resume, destroy.
+- **Live stream:** a background process prints a line every 200 ms; see how fast lines arrive from each provider.
+- **Agent:** a Claude agent works through four small coding tasks inside each sandbox, and a check afterwards
+  says whether it passed, with time, turns, tokens and cost.
+- **Load:** many sandboxes at once, with success rate, errors and latency spread.
+- **Capabilities:** what each provider declares, and a quick check of the core interface.
+
+```sh
+pnpm run playground      # then open http://127.0.0.1:4317 (PORT changes the port)
+```
+
+Provider keys come from the same environment variables as the conformance tests (for example `E2B_API_KEY`);
+providers without them are greyed out with the variable to set. Docker works when it is running. The agent test
+needs `ANTHROPIC_API_KEY` or an `ant auth login` profile. Keys stay on the server and never reach the page.
+
+The agent and load tests spend real money: the agent test calls the Claude API and the load test creates many
+sandboxes at once, so both ask before starting. Every sandbox the playground creates is labelled
+`open-sb.playground` and destroyed when its run ends or is cancelled; "Clean up sandboxes" removes any left over.
 
 ## Status
 

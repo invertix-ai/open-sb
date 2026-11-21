@@ -41,6 +41,7 @@
     "check": "tsc --noEmit",
     "test": "node --test test/*.test.ts",
     "graphic": "node scripts/graphic.ts",
+    "playground": "node playground/server.ts",
     "test:agent37": "node --test test/agent37.conformance.ts",
     "test:beam": "node --test test/beam.conformance.ts",
     "test:blaxel": "node --test test/blaxel.conformance.ts",
@@ -60,20 +61,20 @@
     "test:vercel": "node --test test/vercel.conformance.ts"
   },
   "peerDependencies": {
-    "@boatdev/sdk": ">=1.13.0",
-    "e2b": ">=2.64.0",
-    "@daytonaio/sdk": ">=0.232.0",
-    "@vercel/sandbox": ">=4.1.0",
-    "modal": ">=0.11.2",
-    "@fly/sprites": ">=0.2.5",
-    "@runloop/api-client": ">=3.0.0",
-    "@codesandbox/sdk": ">=2.4.2",
-    "morphcloud": ">=0.0.20",
+    "@beamcloud/beam-js": ">=1.1.6",
     "@blaxel/core": ">=0.3.40",
-    "@upstash/box": ">=0.8.1",
-    "freestyle": ">=0.2.23",
+    "@boatdev/sdk": ">=1.13.0",
+    "@codesandbox/sdk": ">=2.4.2",
+    "@daytonaio/sdk": ">=0.232.0",
+    "@fly/sprites": ">=0.2.5",
     "@hopx-ai/sdk": ">=0.5.1",
-    "@beamcloud/beam-js": ">=1.1.6"
+    "@runloop/api-client": ">=3.0.0",
+    "@upstash/box": ">=0.8.1",
+    "@vercel/sandbox": ">=4.1.0",
+    "e2b": ">=2.64.0",
+    "freestyle": ">=0.2.23",
+    "modal": ">=0.11.2",
+    "morphcloud": ">=0.0.20"
   },
   "peerDependenciesMeta": {
     "@boatdev/sdk": {
@@ -120,6 +121,7 @@
     }
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^1.12.0",
     "@beamcloud/beam-js": "^1.1.6",
     "@blaxel/core": "^0.3.40",
     "@boatdev/sdk": "^1.13.0",
