@@ -31,12 +31,13 @@ export const TESTS: Record<string, { run: TestFn; options: (raw: Record<string, 
 /** Runs at the same time; more are refused until one ends. */
 export const MAX_ACTIVE_RUNS = 3;
 
-const UI = new URL("./ui/", import.meta.url);
-const STATIC: Record<string, string> = {
-  "/": "index.html", "/index.html": "index.html", "/app.js": "app.js", "/styles.css": "styles.css", "/charts.js": "charts.js",
+/** The built web UI (playground/web, built by `pnpm run playground` or `pnpm run playground:build`). */
+const WEB = new URL("./web/dist/", import.meta.url);
+const TYPES: Record<string, string> = {
+  html: "text/html; charset=utf-8", js: "text/javascript; charset=utf-8", css: "text/css; charset=utf-8",
+  svg: "image/svg+xml", png: "image/png", woff2: "font/woff2", woff: "font/woff",
 };
-const TYPES: Record<string, string> = { html: "text/html; charset=utf-8", js: "text/javascript; charset=utf-8", css: "text/css; charset=utf-8", svg: "image/svg+xml", png: "image/png" };
-const CSP = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'";
+const CSP = "default-src 'self'; img-src 'self' data:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'";
 
 class HttpError extends Error {
   readonly status: number;
@@ -110,7 +111,7 @@ export function createApp(options: AppOptions) {
       if (!status.available) throw new HttpError(400, `${status.title} is not available: ${status.howToEnable}`);
     }
     if (test === "agent" && !(await claudeCredentials(env)).available)
-      throw new HttpError(400, "No Claude credentials: set ANTHROPIC_API_KEY or run `ant auth login`, then restart the playground");
+      throw new HttpError(400, "No Claude credentials: add a key with Claude key in the playground, set ANTHROPIC_API_KEY, or run `ant auth login`");
     if (runs.active().length >= MAX_ACTIVE_RUNS) throw new HttpError(429, `At most ${MAX_ACTIVE_RUNS} runs at a time; wait for one to finish or cancel it`);
     const raw = typeof input.options === "object" && input.options !== null && !Array.isArray(input.options) ? input.options as Record<string, unknown> : {};
     const run = new Run(test, requested, spec.options(raw) as Record<string, unknown>, redactor(env));
@@ -221,10 +222,17 @@ export function createApp(options: AppOptions) {
     const path = url.pathname;
     const method = req.method ?? "GET";
 
-    if (method === "GET" && STATIC[path]) {
-      const file = STATIC[path]!;
-      const content = await readFile(new URL(file, UI));
-      res.writeHead(200, { "Content-Type": TYPES[file.split(".").pop()!]!, "Cache-Control": "no-cache", "Content-Security-Policy": CSP, "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" });
+    // The UI: index.html for the page, hashed files under /assets/ (names checked, so no path can escape dist).
+    const asset = /^\/assets\/([A-Za-z0-9_.-]+\.(js|css|woff2|woff|svg|png))$/.exec(path);
+    if (method === "GET" && (path === "/" || path === "/index.html" || asset)) {
+      const file = asset ? `assets/${asset[1]}` : "index.html";
+      let content: Buffer;
+      try { content = await readFile(new URL(file, WEB)); }
+      catch { throw new HttpError(asset ? 404 : 503, asset ? "Not found" : "The web UI is not built: run pnpm run playground (it builds it) or pnpm run playground:build"); }
+      res.writeHead(200, {
+        "Content-Type": TYPES[file.split(".").pop()!]!, "Cache-Control": asset ? "public, max-age=31536000, immutable" : "no-cache",
+        "Content-Security-Policy": CSP, "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
+      });
       return res.end(content);
     }
     const logo = /^\/logos\/([a-z0-9]+)\.(svg|png)$/.exec(path);

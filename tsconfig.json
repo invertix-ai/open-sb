@@ -11,5 +11,6 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["src", "bin", "test", "playground"]
+  "include": ["src", "bin", "test", "playground"],
+  "exclude": ["playground/web"]
 }

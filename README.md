@@ -226,8 +226,11 @@ them, each in its own column:
 - **Capabilities:** what each provider declares, and a quick check of the core interface.
 
 ```sh
-pnpm run playground      # then open http://127.0.0.1:4317 (PORT changes the port)
+pnpm run playground      # builds the UI if needed, then open http://127.0.0.1:4317 (PORT changes the port)
+pnpm run playground:dev  # UI development: Vite on 127.0.0.1:5317, proxying to a running playground
 ```
+
+The UI is a React app (Vite, Tailwind CSS and shadcn/ui) in `playground/web`; the server serves its build.
 
 Click a provider to enter its keys, test the connection and save them; no restart needed. Saved keys go to
 `~/.config/open-sb/credentials.json` with 0600 permissions and win over environment variables. Keys can also
@@ -238,6 +241,10 @@ works when it is running. Keys stay on the server and are never sent back to the
 The agent and load tests spend real money: the agent test calls the Claude API and the load test creates many
 sandboxes at once, so both ask before starting. Every sandbox the playground creates is labelled
 `open-sb.playground` and destroyed when its run ends or is cancelled; "Clean up sandboxes" removes any left over.
+
+Third-party code: six blocks from [Bencho](https://github.com/cabralorenzo/bencho) (MIT) in
+`playground/web/src/bencho/`, with its licence: Slide to confirm, Rolling counter, Context meter, Checklist,
+Dynamic island and Label input. They are modified to take real data (each change is marked "open-sb change").
 
 ## Status
 
