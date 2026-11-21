@@ -99,17 +99,19 @@ h2, h3, h4, h5 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 .provider { position: relative; border-radius: 10px; margin: 2px 0; border: 1px solid transparent; }
 .provider:hover { background: var(--panel); }
 .provider.selected { background: rgba(124, 156, 255, 0.08); border-color: rgba(124, 156, 255, 0.28); }
+.provider-row { display: flex; align-items: center; }
 .provider-btn {
-  display: flex; align-items: center; gap: 10px; width: 100%;
-  padding: 8px 8px 2px; background: none; border: 0; color: inherit; text-align: left; cursor: pointer;
+  display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;
+  padding: 8px 8px 2px; background: none; border: 0; color: inherit; text-align: left; cursor: pointer; border-radius: 8px;
 }
-.provider.unavailable .provider-btn { cursor: help; }
+.provider-btn:hover .provider-name { text-decoration: underline; text-decoration-color: var(--faint); text-underline-offset: 3px; }
 .provider.unavailable .logo, .provider.unavailable .provider-name { opacity: 0.45; filter: grayscale(1); }
 .provider-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .provider-name { font-weight: 600; font-size: 13.5px; }
 .provider-hint { color: var(--faint); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .provider.unavailable .provider-hint { color: var(--warn); opacity: 0.8; font-family: var(--mono); font-size: 11px; }
-.toggle { width: 30px; height: 18px; border-radius: 999px; background: var(--border-2); position: relative; flex: none; transition: background 0.15s; }
+.toggle { width: 30px; height: 18px; margin: 6px 8px 0 4px; padding: 0; border: 0; border-radius: 999px; background: var(--border-2); position: relative; flex: none; cursor: pointer; transition: background 0.15s; }
+.toggle:focus-visible, .provider-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .toggle i { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #c8cfdc; transition: transform 0.15s; }
 .provider.selected .toggle { background: var(--accent); }
 .provider.selected .toggle i { transform: translateX(12px); background: #fff; }
@@ -351,3 +353,28 @@ input[type=range] { accent-color: var(--accent); width: 100%; }
   .stats { display: none; }
   .main { padding: 0 14px 40px; }
 }
+
+/* Key setup ------------------------------------------------------------ */
+.top-actions { display: flex; gap: 8px; }
+.link-btn.inline { padding: 0; color: var(--accent-2); font-size: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.banner.ok { background: rgba(60, 207, 145, 0.08); border: 1px solid rgba(60, 207, 145, 0.4); color: #b9f0d6; }
+#setup-result .banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.banner:not(.warn):not(.error):not(.ok) { background: var(--bg-2); border: 1px solid var(--border); color: var(--muted); }
+.setup { width: min(560px, 94vw); }
+.setup-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.setup-head h2 { display: flex; align-items: center; gap: 10px; margin: 0; }
+.setup-field { display: flex; flex-direction: column; gap: 5px; margin: 12px 0; }
+.setup-label { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.setup-label em { color: var(--faint); font-style: normal; font-size: 11.5px; }
+.setup-status { margin-left: auto; font-size: 11.5px; color: var(--faint); }
+.setup-status.saved { color: var(--good); }
+.setup-status.env { color: var(--accent-2); }
+.setup-field input {
+  height: 36px; padding: 0 11px; border-radius: 9px; border: 1px solid var(--border-2);
+  background: var(--bg-2); color: var(--text); font: 13px var(--mono);
+}
+.setup-field input:focus { outline: 2px solid rgba(124, 156, 255, 0.5); border-color: var(--accent); }
+#setup-result { margin-top: 12px; }
+#setup-result:empty { display: none; }
+.setup-actions { display: flex; align-items: center; gap: 10px; padding: 0; margin: 16px 0 0; }
+.setup-actions .spacer { flex: 1; }

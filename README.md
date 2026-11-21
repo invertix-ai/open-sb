@@ -229,9 +229,11 @@ them, each in its own column:
 pnpm run playground      # then open http://127.0.0.1:4317 (PORT changes the port)
 ```
 
-Provider keys come from the same environment variables as the conformance tests (for example `E2B_API_KEY`);
-providers without them are greyed out with the variable to set. Docker works when it is running. The agent test
-needs `ANTHROPIC_API_KEY` or an `ant auth login` profile. Keys stay on the server and never reach the page.
+Click a provider to enter its keys, test the connection and save them; no restart needed. Saved keys go to
+`~/.config/open-sb/credentials.json` with 0600 permissions and win over environment variables. Keys can also
+come from the same environment variables as the conformance tests (for example `E2B_API_KEY`). The agent test
+needs a Claude API key (the "Claude key" button, `ANTHROPIC_API_KEY`, or an `ant auth login` profile). Docker
+works when it is running. Keys stay on the server and are never sent back to the page.
 
 The agent and load tests spend real money: the agent test calls the Claude API and the load test creates many
 sandboxes at once, so both ask before starting. Every sandbox the playground creates is labelled

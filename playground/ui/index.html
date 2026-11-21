@@ -16,6 +16,7 @@
     </div>
     <div class="stats" id="stats"></div>
     <div class="top-actions">
+      <button class="btn ghost" id="claude-button" type="button">Claude key</button>
       <button class="btn ghost" id="history-button" type="button">History</button>
     </div>
   </header>
@@ -32,7 +33,7 @@
       <ul class="provider-list" id="provider-list"></ul>
       <div class="sidebar-foot">
         <button class="btn ghost wide" id="cleanup-button" type="button" title="Destroy every sandbox labelled open-sb.playground that no active run owns">Clean up sandboxes</button>
-        <p class="fine">Keys come from environment variables on the server and never reach this page.</p>
+        <p class="fine">Click a provider to enter its keys. Keys stay on the server (environment variables or a 0600 file) and never come back to this page.</p>
       </div>
     </aside>
 
@@ -69,6 +70,14 @@
         <button class="btn primary" value="ok" id="confirm-ok">Start</button>
       </menu>
     </form>
+  </dialog>
+
+  <dialog class="modal setup" id="setup" aria-labelledby="setup-title">
+    <div class="setup-head">
+      <h2 id="setup-title"></h2>
+      <button class="btn ghost small" type="button" id="setup-close">Close</button>
+    </div>
+    <div id="setup-body"></div>
   </dialog>
 
   <div class="toasts" id="toasts" aria-live="polite"></div>

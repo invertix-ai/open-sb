@@ -63,13 +63,15 @@ function executor(ctx: TestContext, id: string): ToolExecutor {
   };
 }
 
-/** The client factory; tests replace it with a fake. */
-export let makeClient: () => AgentClient = () => new Anthropic();
-export const setClientFactory = (factory: () => AgentClient) => { makeClient = factory; };
+/** The client factory; tests replace it with a fake. A key saved in the UI wins over the environment; without
+ * one the SDK resolves credentials itself (ANTHROPIC_API_KEY, or an `ant auth login` profile). */
+export let makeClient: (env: Record<string, string | undefined>) => AgentClient =
+  env => env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }) : new Anthropic();
+export const setClientFactory = (factory: (env: Record<string, string | undefined>) => AgentClient) => { makeClient = factory; };
 
 export async function agent(ctx: TestContext) {
   const options = agentOptions(ctx.options);
-  const client = makeClient();
+  const client = makeClient(ctx.env);
   const tasks: Record<string, unknown> = {};
   if (FALLBACK_MODELS.has(options.model)) ctx.emit({ type: "log", level: "info", message: `Refusal fallback is on (fallbacks: "default")` });
 

@@ -1,7 +1,8 @@
 // The playground's HTTP API and static UI, on Node's built-in http server. Requests must come from this
 // machine by name (Host and Origin are checked against localhost to block DNS rebinding), POSTs must be JSON,
-// and no response ever carries a credential: provider status lists variable names only, and every run event
-// is redacted against the known secret values before it is stored.
+// and no response ever carries a credential: provider and key status list variable names only, and every
+// run event is redacted against the known secret values (environment and saved) before it is stored. Keys saved
+// from the UI (credentials.ts) are merged in on every request, so a new key needs no restart.
 import { readFile } from "node:fs/promises";
 import http from "node:http";
 import { LABEL, errorInfo, liveCount, runAcrossProviders, destroySandbox, type TestFn } from "./harness.ts";
@@ -9,6 +10,8 @@ import { byModule, getProvider, logoFile, providerStatuses, secretValues } from 
 import { Run, RunStore } from "./runs.ts";
 import { FALLBACK_MODELS, MODELS, EFFORTS, PRICES } from "./agent-loop.ts";
 import { TASKS } from "./tasks.ts";
+import { CLAUDE, CredentialError, credentialStatuses, mergedEnv, removeValues, saveValues, savedSecretValues, validateValues } from "./credentials.ts";
+import { testClaude, testProvider } from "./connection.ts";
 import { agent, agentOptions, claudeCredentials, estimateUsd } from "./tests/agent.ts";
 import { capabilities, CHECKS } from "./tests/capabilities.ts";
 import { load, loadOptions, MAX_LOAD } from "./tests/load.ts";
@@ -47,10 +50,15 @@ export interface AppOptions {
 }
 
 export function createApp(options: AppOptions) {
-  const env = options.env ?? process.env;
+  const baseEnv = options.env ?? process.env;
+  /** Environment variables with keys saved in the UI on top, read fresh so a saved key needs no restart. */
+  const currentEnv = () => mergedEnv(baseEnv);
   const runs = new RunStore();
-  const secrets = secretValues(env);
-  const redact = (text: string) => secrets.reduce((out, secret) => out.split(secret).join("[redacted]"), text);
+  const redactor = (env: Env) => {
+    const secrets = [...new Set([...secretValues(env), ...savedSecretValues()])].sort((a, b) => b.length - a.length);
+    return (text: string) => secrets.reduce((out, secret) => out.split(secret).join("[redacted]"), text);
+  };
+  const redact = (text: string) => redactor(currentEnv())(text);
 
   function allowedHost(host: string | undefined): boolean {
     if (!host) return false;
@@ -65,7 +73,7 @@ export function createApp(options: AppOptions) {
   }
 
   async function body(req: http.IncomingMessage): Promise<Record<string, unknown>> {
-    if (!/^application\/json\b/i.test(req.headers["content-type"] ?? "")) throw new HttpError(415, "POST bodies must be application/json");
+    if (!/^application\/json\b/i.test(req.headers["content-type"] ?? "")) throw new HttpError(415, "POST and PUT bodies must be application/json");
     const chunks: Buffer[] = [];
     let size = 0;
     for await (const chunk of req) {
@@ -94,6 +102,7 @@ export function createApp(options: AppOptions) {
     if (!spec) throw new HttpError(400, `Unknown test. Use one of: ${Object.keys(TESTS).join(", ")}`);
     const requested = Array.isArray(input.providers) ? [...new Set(input.providers.filter((name): name is string => typeof name === "string"))] : [];
     if (requested.length === 0) throw new HttpError(400, "Pick at least one provider");
+    const env = currentEnv();
     const statuses = await providerStatuses(env);
     for (const name of requested) {
       const status = statuses.find(entry => entry.module === name);
@@ -104,11 +113,11 @@ export function createApp(options: AppOptions) {
       throw new HttpError(400, "No Claude credentials: set ANTHROPIC_API_KEY or run `ant auth login`, then restart the playground");
     if (runs.active().length >= MAX_ACTIVE_RUNS) throw new HttpError(429, `At most ${MAX_ACTIVE_RUNS} runs at a time; wait for one to finish or cancel it`);
     const raw = typeof input.options === "object" && input.options !== null && !Array.isArray(input.options) ? input.options as Record<string, unknown> : {};
-    const run = new Run(test, requested, spec.options(raw) as Record<string, unknown>, redact);
+    const run = new Run(test, requested, spec.options(raw) as Record<string, unknown>, redactor(env));
     runs.add(run);
     const providers = requested.map(module => ({ module, title: byModule.get(module)!.title, provider: getProvider(module, env) }));
     run.emit({ type: "log", level: "info", message: `Run ${run.id}: ${test} on ${requested.join(", ")}` });
-    runAcrossProviders(run, providers, spec.run)
+    runAcrossProviders(run, providers, spec.run, env)
       .then(() => run.finish(run.signal.aborted ? "cancelled" : "done"))
       .catch(error => { run.emit({ type: "error", ...errorInfo(error) }); run.finish("failed"); });
     return run;
@@ -131,6 +140,7 @@ export function createApp(options: AppOptions) {
   }
 
   async function cleanup() {
+    const env = currentEnv();
     const active = new Set(runs.active().map(run => run.id));
     const statuses = (await providerStatuses(env)).filter(status => status.available);
     const report: Record<string, { destroyed: number; skipped: number; error?: string }> = {};
@@ -154,6 +164,7 @@ export function createApp(options: AppOptions) {
   }
 
   async function overview() {
+    const env = currentEnv();
     const claude = await claudeCredentials(env);
     return {
       providers: await providerStatuses(env),
@@ -167,6 +178,40 @@ export function createApp(options: AppOptions) {
       limits: { maxLoad: MAX_LOAD, maxActiveRuns: MAX_ACTIVE_RUNS },
       liveSandboxes: liveCount(),
     };
+  }
+
+  /** Saved values for a module merged with candidate ones, as the environment a test or a run would see. */
+  const candidateEnv = (module: string, values: Record<string, string>) => ({ ...currentEnv(), ...values });
+  const testWith = (module: string, env: Env) => module === CLAUDE ? testClaude(env) : testProvider(module, env);
+
+  async function credentials(req: http.IncomingMessage, res: http.ServerResponse, method: string, module: string, test: boolean) {
+    if (module !== CLAUDE && !byModule.has(module)) throw new HttpError(404, `Unknown provider ${module}`);
+    const status = () => credentialStatuses(baseEnv).find(entry => entry.module === module);
+    try {
+      if (test && method === "POST") {
+        const input = await body(req);
+        const values = validateValues(module, input.values ?? {});
+        return json(res, 200, { test: await testWith(module, candidateEnv(module, values)) });
+      }
+      if (!test && method === "PUT") {
+        const input = await body(req);
+        const values = validateValues(module, input.values ?? {});
+        if (Object.keys(values).length === 0) throw new HttpError(400, "Enter at least one value to save");
+        const result = await testWith(module, candidateEnv(module, values));
+        // A failed test does not save unless the user asked to save anyway.
+        if (!result.ok && input.force !== true) return json(res, 200, { saved: false, test: result, credential: status() });
+        saveValues(module, values);
+        return json(res, 200, { saved: true, test: result, credential: status() });
+      }
+      if (!test && method === "DELETE") {
+        removeValues(module);
+        return json(res, 200, { removed: true, credential: status() });
+      }
+    } catch (error) {
+      if (error instanceof CredentialError) throw new HttpError(400, error.message);
+      throw error;
+    }
+    throw new HttpError(405, "Method not allowed");
   }
 
   async function route(req: http.IncomingMessage, res: http.ServerResponse) {
@@ -201,6 +246,10 @@ export function createApp(options: AppOptions) {
       await body(req);
       return json(res, 200, { cleanup: await cleanup() });
     }
+    if (method === "GET" && path === "/api/credentials")
+      return json(res, 200, { path: "~/.config/open-sb/credentials.json", credentials: credentialStatuses(baseEnv) });
+    const credential = /^\/api\/credentials\/([a-z0-9]+)(\/test)?$/.exec(path);
+    if (credential) return credentials(req, res, method, credential[1]!, Boolean(credential[2]));
     const match = /^\/api\/runs\/([a-z0-9-]+)(?:\/(events|cancel|export))?$/.exec(path);
     if (match) {
       const run = runs.get(match[1]!);
@@ -229,5 +278,5 @@ export function createApp(options: AppOptions) {
     });
   };
 
-  return { handler, runs };
+  return { handler, runs, redact };
 }

@@ -94,13 +94,15 @@ function renderSidebar() {
     const hint = entry.available ? esc(entry.kind)
       : entry.module === "docker" ? "Docker is not running" : `set ${esc(entry.missing.join(" + "))}`;
     return `<li class="provider ${entry.available ? "" : "unavailable"} ${on ? "selected" : ""}" data-module="${esc(entry.module)}">
-      <button type="button" class="provider-btn" ${entry.available ? "" : "aria-disabled=\"true\""} aria-pressed="${on}">
-        ${logo(entry.module)}
-        <span class="provider-text"><span class="provider-name">${esc(entry.title)}</span><span class="provider-hint">${hint}</span></span>
-        <span class="toggle" aria-hidden="true"><i></i></span>
-      </button>
+      <div class="provider-row">
+        <button type="button" class="provider-btn" data-action="setup" title="Set up ${esc(entry.title)}">
+          ${logo(entry.module)}
+          <span class="provider-text"><span class="provider-name">${esc(entry.title)}</span><span class="provider-hint">${hint}</span></span>
+        </button>
+        <button type="button" class="toggle" data-action="toggle" role="switch" aria-checked="${on}" aria-label="Use ${esc(entry.title)} in tests" ${entry.available ? "" : "aria-disabled=\"true\""}><i></i></button>
+      </div>
       <div class="caps">${dots}</div>
-      ${entry.available ? "" : `<div class="tip"><b>How to enable ${esc(entry.title)}</b><br>${esc(entry.howToEnable)}</div>`}
+      ${entry.available ? "" : `<div class="tip"><b>How to enable ${esc(entry.title)}</b><br>Click to enter keys here, or: ${esc(entry.howToEnable)}</div>`}
     </li>`;
   }).join("");
   renderStats();
@@ -110,7 +112,8 @@ $("#provider-list").addEventListener("click", event => {
   const item = event.target.closest(".provider");
   if (!item) return;
   const entry = state.byModule.get(item.dataset.module);
-  if (!entry?.available) { toast(entry ? entry.howToEnable : "Unknown provider"); return; }
+  if (!entry) return;
+  if (event.target.closest("[data-action=setup]") || !entry.available) { openSetup(entry.module); return; }
   if (state.selected.has(entry.module)) state.selected.delete(entry.module); else state.selected.add(entry.module);
   saveSelection();
   renderSidebar();
@@ -193,7 +196,9 @@ function renderOptions() {
       ${number("timeLimitMin", "Time limit", o.timeLimitMin, 1, 10, 1, "min")}
       <fieldset class="tasks"><legend>Tasks</legend>${tasks.map(task => `<label class="check"><input type="checkbox" name="task" value="${esc(task.id)}" ${chosen.has(task.id) ? "checked" : ""}><span>${esc(task.title)}</span></label>`).join("")}</fieldset>
       <p class="note">${model?.fallback ? `Refusal fallback is on for this model (<code>fallbacks: "default"</code>): a declined request is retried on Anthropic's recommended fallback model.` : "No server-side refusal fallback for this model."} Limits apply to each task: at most ${esc(o.maxTurns)} turns and ${esc(o.timeLimitMin)} min.</p>
-      ${claude?.available ? "" : `<p class="banner warn">No Claude credentials found. Set <code>ANTHROPIC_API_KEY</code> (or run <code>ant auth login</code>) and restart the playground to enable this test.</p>`}`;
+      ${claude?.available
+        ? `<p class="note"><button type="button" class="link-btn inline" data-setup="claude">Claude API key</button> is set (${esc(claude.source)}).</p>`
+        : `<p class="banner warn">No Claude credentials found. <button type="button" class="link-btn inline" data-setup="claude">Enter a Claude API key</button>, or set <code>ANTHROPIC_API_KEY</code> (or run <code>ant auth login</code>) and restart the playground.</p>`}`;
   } else if (state.tab === "load") {
     const providers = selectedAvailable().length || 1;
     html = `<label class="field slider"><span>Sandboxes per provider <b id="n-value">${esc(o.n)}</b></span>
@@ -666,6 +671,128 @@ function capabilitiesMatrix(view) {
 
 const SUMMARIES = { speed: speedSummary, stream: streamSummary, agent: agentSummary, load: loadSummary };
 const BODIES = { speed: speedBody, stream: streamBody, agent: agentBody, load: loadBody };
+
+// ---------------------------------------------------------------- key setup
+
+const STATUS_TEXT = { saved: "set (saved)", env: "set (from environment)", unset: "not set" };
+let setupModule = null;
+
+async function openSetup(module) {
+  setupModule = module;
+  const dialog = $("#setup");
+  if (!dialog.open) dialog.showModal();
+  $("#setup-body").innerHTML = `<p class="muted">Loading...</p>`;
+  try {
+    const { credentials, path } = await api("/api/credentials");
+    const entry = credentials.find(item => item.module === module);
+    if (!entry) throw new Error("Unknown provider");
+    renderSetup(entry, path);
+  } catch (error) {
+    $("#setup-body").innerHTML = `<p class="banner error">${esc(error.message)}</p>`;
+  }
+}
+
+function renderSetup(entry, path, result = null) {
+  $("#setup-title").innerHTML = `${entry.module === "claude" ? "" : logo(entry.module, 26)} Set up ${esc(entry.title)}`;
+  const saved = entry.fields.some(field => field.status === "saved");
+  const fields = entry.fields.map(field => `<label class="setup-field">
+      <span class="setup-label"><code>${esc(field.name)}</code>${field.required ? "" : ` <em>optional</em>`}<span class="setup-status ${field.status}">${esc(STATUS_TEXT[field.status])}</span></span>
+      <input name="${esc(field.name)}" type="${field.secret ? "password" : "text"}" autocomplete="off" spellcheck="false"
+        placeholder="${field.status === "saved" ? "saved; type to replace" : field.status === "env" ? "from environment; type to override" : field.secret ? "paste the key" : "value"}">
+    </label>`).join("");
+  const alternatives = entry.alternatives.length
+    ? `<p class="fine">Instead of the required variables, ${entry.alternatives.map(set => set.map(name => `<code>${esc(name)}</code>`).join(" + ")).join(" or ")} also works.</p>` : "";
+  $("#setup-body").innerHTML = `
+    ${entry.keyUrl ? `<p><a href="${esc(safeUrl(entry.keyUrl))}" target="_blank" rel="noopener noreferrer">Get a key from ${esc(entry.title.replace(/ API key$/, ""))}</a></p>` : ""}
+    ${fields ? `<form id="setup-form" autocomplete="off">${fields}</form>` : `<p class="muted">${esc(entry.title)} needs no keys. Test connection checks that Docker is running.</p>`}
+    ${alternatives}
+    <div id="setup-result">${result ? resultHtml(result) : ""}</div>
+    <p class="fine">Saved keys go to <code>${esc(path)}</code> (readable only by you) and win over environment variables. They never come back to this page.</p>
+    <menu class="setup-actions">
+      ${saved ? `<button type="button" class="btn danger small" data-act="remove">Remove saved keys</button>` : ""}
+      <span class="spacer"></span>
+      <button type="button" class="btn" data-act="test">Test connection</button>
+      ${fields ? `<button type="button" class="btn primary" data-act="save">Save</button>` : ""}
+    </menu>`;
+  $("#setup-body").dataset.path = path;
+}
+
+function resultHtml(result) {
+  if (result.saved === false) return `<div class="banner warn"><span>${testText(result.test)}. Nothing was saved.</span>
+      <button type="button" class="btn small" data-act="force">Save anyway</button></div>`;
+  const test = result.test ?? result;
+  const prefix = result.saved ? "Saved. " : result.removed ? "Removed saved keys. " : "";
+  if (!test) return `<div class="banner ok"><span>${prefix}</span></div>`;
+  return `<div class="banner ${test.ok ? "ok" : "error"}"><span>${prefix}${testText(test)}</span></div>`;
+}
+
+function testText(test) {
+  if (test.ok) return `Connection works (${esc(fmt(test.ms, "ms"))})`;
+  if (test.kind === "missing") return `Missing ${test.missing.map(name => `<code>${esc(name)}</code>`).join(", ")}`;
+  const detail = [test.code, test.status ? `HTTP ${test.status}` : ""].filter(Boolean).map(esc).join(", ");
+  return `Connection failed: <b>${esc(test.kind)}</b>${detail ? ` (${detail})` : ""}`;
+}
+
+function formValues() {
+  const values = {};
+  for (const input of document.querySelectorAll("#setup-form input")) if (input.value.trim()) values[input.name] = input.value.trim();
+  return values;
+}
+
+let pendingValues = null;
+$("#setup-body").addEventListener("click", async event => {
+  const act = event.target.closest("[data-act]")?.dataset.act;
+  if (!act || !setupModule) return;
+  const module = setupModule, path = $("#setup-body").dataset.path;
+  const buttons = document.querySelectorAll("#setup-body button");
+  buttons.forEach(button => { button.disabled = true; });
+  $("#setup-result").innerHTML = `<div class="banner"><span class="spinner"></span> ${act === "test" ? "Testing..." : act === "remove" ? "Removing..." : "Testing and saving..."}</div>`;
+  try {
+    const url = `/api/credentials/${encodeURIComponent(module)}`;
+    let result, entry;
+    if (act === "test") {
+      result = await post(`${url}/test`, { values: formValues() });
+    } else if (act === "save" || act === "force") {
+      const values = act === "force" ? pendingValues ?? {} : formValues();
+      result = await api(url, { method: "PUT", body: JSON.stringify({ values, force: act === "force" }) });
+      pendingValues = result.saved ? null : values;
+      entry = result.credential;
+    } else {
+      result = await api(url, { method: "DELETE" });
+      entry = result.credential;
+    }
+    if (entry) {
+      // Keys typed in are not kept in the page once saved (a failed save keeps them for "Save anyway").
+      renderSetup(entry, path, result);
+      if (!result.saved && result.saved !== undefined) for (const [name, value] of Object.entries(pendingValues ?? {})) {
+        const input = document.querySelector(`#setup-form input[name="${CSS.escape(name)}"]`);
+        if (input) input.value = value;
+      }
+      await loadOverview();
+      renderAll();
+    } else {
+      $("#setup-result").innerHTML = resultHtml(result);
+    }
+  } catch (error) {
+    $("#setup-result").innerHTML = `<div class="banner error">${esc(error.message)}</div>`;
+  } finally {
+    document.querySelectorAll("#setup-body button").forEach(button => { button.disabled = false; });
+  }
+});
+
+function closeSetup() {
+  pendingValues = null;
+  setupModule = null;
+  $("#setup-body").innerHTML = "";
+  if ($("#setup").open) $("#setup").close();
+}
+$("#setup-close").addEventListener("click", closeSetup);
+$("#setup").addEventListener("close", () => { pendingValues = null; setupModule = null; $("#setup-body").innerHTML = ""; });
+$("#claude-button").addEventListener("click", () => openSetup("claude"));
+$("#options").addEventListener("click", event => {
+  const module = event.target.closest("[data-setup]")?.dataset.setup;
+  if (module) openSetup(module);
+});
 
 // ---------------------------------------------------------------- history drawer
 

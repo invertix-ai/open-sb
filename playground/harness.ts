@@ -17,6 +17,8 @@ export interface TestContext {
   signal: AbortSignal;
   /** Emits an event for this provider. */
   emit: Emit;
+  /** Environment variables merged with saved keys, for tests that build their own clients. */
+  env: Record<string, string | undefined>;
 }
 
 export type TestFn = (ctx: TestContext) => Promise<unknown>;
@@ -111,10 +113,10 @@ export function method<T>(provider: AnyProvider, name: string): T {
  * Runs `test` for every provider in parallel. Each provider reports `status` events and ends with its result
  * in `run.results`; afterwards every sandbox labelled with this run is destroyed, also on cancel.
  */
-export async function runAcrossProviders(run: Run, providers: { module: string; title: string; provider: AnyProvider }[], test: TestFn): Promise<void> {
+export async function runAcrossProviders(run: Run, providers: { module: string; title: string; provider: AnyProvider }[], test: TestFn, env: Record<string, string | undefined> = {}): Promise<void> {
   await Promise.all(providers.map(async ({ module, title, provider }) => {
     const emit: Emit = event => run.emit({ ...event, provider: module });
-    const ctx: TestContext = { runId: run.id, module, title, provider, options: run.options, signal: run.signal, emit };
+    const ctx: TestContext = { runId: run.id, module, title, provider, options: run.options, signal: run.signal, emit, env };
     emit({ type: "status", status: "running" });
     const started = performance.now();
     try {

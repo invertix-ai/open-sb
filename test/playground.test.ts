@@ -1,13 +1,18 @@
 // The playground's own logic, without the network: statistics, the event log and its SSE replay, the
-// localhost guard, cleanup across providers, and the agent tool loop driven by a fake Anthropic client.
+// localhost guard, cleanup across providers, the agent tool loop driven by a fake Anthropic client, and keys
+// saved from the UI (stored in a temporary HOME).
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync, statSync } from "node:fs";
 import http from "node:http";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { AddressInfo } from "node:net";
 import { test } from "node:test";
 import type { BetaMessage } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import { defineProvider, type Core, type SandboxInfo } from "../src/index.ts";
 import { addUsage, echoContent, runAgentLoop, validateRunCommand, validateWriteFile, type AgentClient, type ToolExecutor } from "../playground/agent-loop.ts";
 import { createApp } from "../playground/app.ts";
+import { CredentialError, credentialsPath, loadSaved, mergedEnv, removeValues, saveValues, validateValues } from "../playground/credentials.ts";
 import { LABEL, runAcrossProviders } from "../playground/harness.ts";
 import { Run, type PlaygroundEvent } from "../playground/runs.ts";
 import { histogram, percentile, summarize } from "../playground/stats.ts";
@@ -240,4 +245,88 @@ test("tool inputs are validated before they run", () => {
   assert.equal(validateWriteFile({ path: "/tmp/x", content: "" }).ok, true);
   assert.equal(validateWriteFile({ path: "/tmp/", content: "" }).ok, false);
   assert.equal(validateWriteFile({ path: "/tmp/x", content: 3 }).ok, false);
+});
+
+// ---------------------------------------------------------------- saved keys
+
+async function withHome(fn: (home: string) => Promise<void>) {
+  const previous = process.env.HOME;
+  const home = mkdtempSync(join(tmpdir(), "open-sb-home-"));
+  process.env.HOME = home;
+  try { await fn(home); }
+  finally { process.env.HOME = previous; rmSync(home, { recursive: true, force: true }); }
+}
+
+function request(port: number, method: string, path: string, body?: unknown): Promise<{ status: number; body: string }> {
+  return new Promise((done, fail) => {
+    const req = http.request({ host: "127.0.0.1", port, path, method, headers: body === undefined ? {} : { "Content-Type": "application/json" } }, response => {
+      let text = "";
+      response.on("data", chunk => { text += chunk; });
+      response.on("end", () => done({ status: response.statusCode ?? 0, body: text }));
+    });
+    req.on("error", fail);
+    req.end(body === undefined ? undefined : JSON.stringify(body));
+  });
+}
+
+test("saved keys round-trip through a 0600 file in a 0700 directory, and removing deletes them", async () => {
+  await withHome(async home => {
+    assert.deepEqual(loadSaved(), {});
+    saveValues("e2b", validateValues("e2b", { E2B_API_KEY: "  e2b_fake_0123456789  ", E2B_TEMPLATE: "" }));
+    saveValues("fly", { FLY_REGION: "ams" });
+    const file = join(home, ".config", "open-sb", "credentials.json");
+    assert.equal(credentialsPath(), file);
+    assert.equal(statSync(file).mode & 0o777, 0o600);
+    assert.equal(statSync(join(home, ".config", "open-sb")).mode & 0o777, 0o700);
+    assert.deepEqual(loadSaved(), { e2b: { E2B_API_KEY: "e2b_fake_0123456789" }, fly: { FLY_REGION: "ams" } }, "values are trimmed and empty ones dropped");
+    removeValues("e2b");
+    assert.deepEqual(loadSaved(), { fly: { FLY_REGION: "ams" } });
+  });
+});
+
+test("only a provider's own variables are accepted, within length limits", async () => {
+  assert.throws(() => validateValues("e2b", { PATH: "/bin" }), CredentialError);
+  assert.throws(() => validateValues("e2b", { DAYTONA_API_KEY: "x" }), CredentialError, "another provider's variable");
+  assert.throws(() => validateValues("e2b", { E2B_API_KEY: "x".repeat(5000) }), CredentialError);
+  assert.throws(() => validateValues("e2b", { E2B_API_KEY: "a\nb" }), CredentialError);
+  assert.throws(() => validateValues("nope", {}), CredentialError);
+  assert.deepEqual(validateValues("claude", { ANTHROPIC_API_KEY: "sk-ant-fake" }), { ANTHROPIC_API_KEY: "sk-ant-fake" });
+  await withHome(async () => withServer(async port => {
+    const rejected = await request(port, "PUT", "/api/credentials/e2b", { values: { NODE_OPTIONS: "--inspect" } });
+    assert.equal(rejected.status, 400);
+    assert.match(JSON.parse(rejected.body).error, /not a variable of e2b/);
+    assert.equal((await request(port, "PUT", "/api/credentials/e2b")).status, 415, "bodies must be JSON");
+    assert.deepEqual(loadSaved(), {}, "nothing was written");
+  }));
+});
+
+test("saved values win over the environment, the API reports only where a value comes from, and runs redact them", async () => {
+  await withHome(async () => {
+    const env = { E2B_API_KEY: "env_value_aaaaaaaa", DAYTONA_API_KEY: "env_daytona_bbbbbbbb" };
+    saveValues("e2b", { E2B_API_KEY: "saved_value_cccccccc" });
+    const merged = mergedEnv(env);
+    assert.equal(merged.E2B_API_KEY, "saved_value_cccccccc");
+    assert.equal(merged.DAYTONA_API_KEY, "env_daytona_bbbbbbbb");
+
+    await withServer(async (port, app) => {
+      const response = await get(port, "/api/credentials");
+      assert.equal(response.status, 200);
+      for (const value of [...Object.values(env), "saved_value_cccccccc"]) assert.ok(!response.body.includes(value), "no value is ever sent back");
+      const statuses = JSON.parse(response.body).credentials as { module: string; fields: { name: string; status: string }[] }[];
+      const field = (module: string, name: string) => statuses.find(entry => entry.module === module)!.fields.find(entry => entry.name === name)!.status;
+      assert.equal(field("e2b", "E2B_API_KEY"), "saved");
+      assert.equal(field("daytona", "DAYTONA_API_KEY"), "env");
+      assert.equal(field("modal", "MODAL_TOKEN_ID"), "unset");
+
+      const providers = JSON.parse((await get(port, "/api/providers")).body) as { providers: { module: string; available: boolean }[] };
+      assert.equal(providers.providers.find(entry => entry.module === "e2b")!.available, true, "a saved key makes the provider available without a restart");
+
+      // A key saved after the server started is redacted too.
+      saveValues("claude", { ANTHROPIC_API_KEY: "sk-ant-later-dddddddd" });
+      assert.equal(app.redact("a sk-ant-later-dddddddd b saved_value_cccccccc c"), "a [redacted] b [redacted] c");
+      const deleted = await request(port, "DELETE", "/api/credentials/e2b");
+      assert.equal(deleted.status, 200);
+      assert.equal(loadSaved().e2b, undefined);
+    }, env);
+  });
 });

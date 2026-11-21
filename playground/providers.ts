@@ -161,16 +161,18 @@ export async function providerStatuses(env: Env): Promise<ProviderStatus[]> {
   });
 }
 
-/** Built providers, one per module for the life of the process (some SDKs keep connections open). */
-const built = new Map<string, AnyProvider>();
+/** Built providers, reused while their variables stay the same (some SDKs keep connections open). A saved
+ * key that changes builds a new one on the next run, without a restart. */
+const built = new Map<string, { fingerprint: string; provider: AnyProvider }>();
 export function getProvider(module: string, env: Env): AnyProvider {
-  let provider = built.get(module);
-  if (!provider) {
-    const entry = byModule.get(module);
-    if (!entry) throw new Error(`Unknown provider ${module}`);
-    provider = entry.build(env);
-    built.set(module, provider);
-  }
+  const entry = byModule.get(module);
+  if (!entry) throw new Error(`Unknown provider ${module}`);
+  const names = [...entry.required, ...(entry.alternatives?.flat() ?? []), ...entry.optional];
+  const fingerprint = JSON.stringify(names.map(name => env[name] ?? null));
+  const cached = built.get(module);
+  if (cached?.fingerprint === fingerprint) return cached.provider;
+  const provider = entry.build(env);
+  built.set(module, { fingerprint, provider });
   return provider;
 }
 
