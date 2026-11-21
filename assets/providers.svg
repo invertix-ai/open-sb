@@ -1,172 +1,170 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="738" viewBox="0 0 1000 738" role="img" aria-labelledby="title desc">
-  <title id="title">open-sb providers</title>
-  <desc id="desc">One interface, open-sb, over E2B, Daytona, Vercel Sandbox, Modal, Boat, Agent37, Docker and your own provider, with the capabilities each one supports.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000" viewBox="0 0 1000 1000" role="img" aria-labelledby="title desc">
+  <title id="title">open-sb providers and capabilities</title>
+  <desc id="desc">One interface, open-sb, over 17 sandbox providers: E2B, Daytona, Vercel Sandbox, Modal, Fly Sprites, Fly Machines, Runloop, CodeSandbox, Morph Cloud, Blaxel, Upstash Box, Freestyle, HOPX, Beam, Boat, Agent37, Docker. A mark shows each optional capability a provider supports.</desc>
   <style>
     .bg { fill: #ffffff; }
     .hub { fill: #111827; }
     .hub-text { fill: #ffffff; }
     .hub-muted { fill: #9ca3af; }
-    .card { fill: #f9fafb; stroke: #e5e7eb; stroke-width: 1.5; }
-    .card-new { fill: none; stroke: #9ca3af; stroke-width: 1.5; stroke-dasharray: 6 5; }
+    .stripe { fill: #f6f8fa; }
+    .own { fill: none; stroke: #9ca3af; stroke-width: 1.5; stroke-dasharray: 6 5; }
     .text { fill: #111827; }
     .muted { fill: #6b7280; }
-    .wire { fill: none; stroke: #d1d5db; stroke-width: 2; }
+    .rule { stroke: #e5e7eb; stroke-width: 1; }
     .on { fill: #10b981; }
-    .on-text { fill: #ffffff; }
-    .off { fill: none; stroke: #d1d5db; stroke-width: 1.2; }
-    .off-text { fill: #9ca3af; }
+    .tick { fill: none; stroke: #ffffff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    .off { fill: #d1d5db; }
     .code { fill: #374151; }
     @media (prefers-color-scheme: dark) {
       .bg { fill: #0d1117; }
       .hub { fill: #f9fafb; }
       .hub-text { fill: #0d1117; }
       .hub-muted { fill: #4b5563; }
-      .card { fill: #161b22; stroke: #30363d; }
-      .card-new { stroke: #6e7681; }
+      .stripe { fill: #161b22; }
+      .own { stroke: #6e7681; }
       .text { fill: #f0f6fc; }
       .muted { fill: #8b949e; }
-      .wire { stroke: #30363d; }
+      .rule { stroke: #30363d; }
       .on { fill: #2ea043; }
-      .off { stroke: #30363d; }
-      .off-text { fill: #6e7681; }
+      .tick { stroke: #0d1117; }
+      .off { fill: #30363d; }
       .code { fill: #c9d1d9; }
     }
     text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   </style>
 
-  <rect class="bg" width="1000" height="738" rx="20"/>
-  <path class="wire" d="M500 124 C500 170, 140 160, 140 208"/>
-  <path class="wire" d="M500 124 C500 170, 380 160, 380 208"/>
-  <path class="wire" d="M500 124 C500 170, 620 160, 620 208"/>
-  <path class="wire" d="M500 124 C500 170, 860 160, 860 208"/>
-  <rect class="hub" x="290" y="32" width="420" height="92" rx="18"/>
+  <rect class="bg" width="1000" height="1000" rx="20"/>
+  <rect class="hub" x="250" y="32" width="500" height="92" rx="18"/>
   <text class="hub-text mono" x="500" y="78" font-size="30" font-weight="700" text-anchor="middle">open-sb</text>
-  <text class="hub-muted" x="500" y="106" font-size="13.5" text-anchor="middle">one interface for every sandbox provider</text>
+  <text class="hub-muted" x="500" y="106" font-size="13.5" text-anchor="middle">one interface · 17 sandbox providers · one config file</text>
 
-  <g transform="translate(30 208)">
-    <rect class="card" width="220" height="222" rx="14"/>
-    <text class="text" x="18" y="38" font-size="22" font-weight="700">E2B</text>
-    <text class="muted" x="18" y="60" font-size="13">Firecracker microVMs</text>
-    <g class="mono" font-size="10.5" text-anchor="middle">
-      <rect class="on" x="14" y="80" width="94" height="24" rx="12"/><text class="on-text" x="61" y="96">pause</text>
-      <rect class="on" x="112" y="80" width="94" height="24" rx="12"/><text class="on-text" x="159" y="96">snapshot</text>
-      <rect class="on" x="14" y="112" width="94" height="24" rx="12"/><text class="on-text" x="61" y="128">ttl</text>
-      <rect class="on" x="112" y="112" width="94" height="24" rx="12"/><text class="on-text" x="159" y="128">ports</text>
-      <rect class="off" x="14" y="144" width="94" height="24" rx="12"/><text class="off-text" x="61" y="160">ssh</text>
-      <rect class="off" x="112" y="144" width="94" height="24" rx="12"/><text class="off-text" x="159" y="160">desktop</text>
-      <rect class="on" x="14" y="176" width="94" height="24" rx="12"/><text class="on-text" x="61" y="192">background</text>
-      <rect class="on" x="112" y="176" width="94" height="24" rx="12"/><text class="on-text" x="159" y="192">persistentDisk</text>
-    </g>
+    <text class="muted mono" x="310" y="176" font-size="11.5" text-anchor="middle">pause</text>
+    <text class="muted mono" x="398" y="176" font-size="11.5" text-anchor="middle">snapshot</text>
+    <text class="muted mono" x="486" y="176" font-size="11.5" text-anchor="middle">ttl</text>
+    <text class="muted mono" x="574" y="176" font-size="11.5" text-anchor="middle">ports</text>
+    <text class="muted mono" x="662" y="176" font-size="11.5" text-anchor="middle">ssh</text>
+    <text class="muted mono" x="750" y="176" font-size="11.5" text-anchor="middle">desktop</text>
+    <text class="muted mono" x="838" y="176" font-size="11.5" text-anchor="middle">background</text>
+    <text class="muted mono" x="926" y="162" font-size="11.5" text-anchor="middle">persistent</text>
+    <text class="muted mono" x="926" y="176" font-size="11.5" text-anchor="middle">disk</text>
+  <g>
+    <rect class="stripe" x="30" y="194" width="940" height="40" rx="8"/>
+    <text class="text" x="44" y="213" font-size="15" font-weight="650">E2B</text>
+    <text class="muted" x="44" y="227" font-size="11">Firecracker microVMs</text>
+    <circle class="on" cx="310" cy="214" r="9"/><path class="tick" d="M306 214 l3 3 l5.5 -6"/><circle class="on" cx="398" cy="214" r="9"/><path class="tick" d="M394 214 l3 3 l5.5 -6"/><circle class="on" cx="486" cy="214" r="9"/><path class="tick" d="M482 214 l3 3 l5.5 -6"/><circle class="on" cx="574" cy="214" r="9"/><path class="tick" d="M570 214 l3 3 l5.5 -6"/><circle class="off" cx="662" cy="214" r="3"/><circle class="off" cx="750" cy="214" r="3"/><circle class="on" cx="838" cy="214" r="9"/><path class="tick" d="M834 214 l3 3 l5.5 -6"/><circle class="on" cx="926" cy="214" r="9"/><path class="tick" d="M922 214 l3 3 l5.5 -6"/>
   </g>
-  <g transform="translate(270 208)">
-    <rect class="card" width="220" height="222" rx="14"/>
-    <text class="text" x="18" y="38" font-size="22" font-weight="700">Daytona</text>
-    <text class="muted" x="18" y="60" font-size="13">Fast dev sandboxes</text>
-    <g class="mono" font-size="10.5" text-anchor="middle">
-      <rect class="on" x="14" y="80" width="94" height="24" rx="12"/><text class="on-text" x="61" y="96">pause</text>
-      <rect class="on" x="112" y="80" width="94" height="24" rx="12"/><text class="on-text" x="159" y="96">snapshot</text>
-      <rect class="off" x="14" y="112" width="94" height="24" rx="12"/><text class="off-text" x="61" y="128">ttl</text>
-      <rect class="on" x="112" y="112" width="94" height="24" rx="12"/><text class="on-text" x="159" y="128">ports</text>
-      <rect class="off" x="14" y="144" width="94" height="24" rx="12"/><text class="off-text" x="61" y="160">ssh</text>
-      <rect class="off" x="112" y="144" width="94" height="24" rx="12"/><text class="off-text" x="159" y="160">desktop</text>
-      <rect class="on" x="14" y="176" width="94" height="24" rx="12"/><text class="on-text" x="61" y="192">background</text>
-      <rect class="on" x="112" y="176" width="94" height="24" rx="12"/><text class="on-text" x="159" y="192">persistentDisk</text>
-    </g>
+  <g>
+    
+    <text class="text" x="44" y="253" font-size="15" font-weight="650">Daytona</text>
+    <text class="muted" x="44" y="267" font-size="11">Fast dev sandboxes</text>
+    <circle class="on" cx="310" cy="254" r="9"/><path class="tick" d="M306 254 l3 3 l5.5 -6"/><circle class="on" cx="398" cy="254" r="9"/><path class="tick" d="M394 254 l3 3 l5.5 -6"/><circle class="on" cx="486" cy="254" r="9"/><path class="tick" d="M482 254 l3 3 l5.5 -6"/><circle class="on" cx="574" cy="254" r="9"/><path class="tick" d="M570 254 l3 3 l5.5 -6"/><circle class="off" cx="662" cy="254" r="3"/><circle class="off" cx="750" cy="254" r="3"/><circle class="on" cx="838" cy="254" r="9"/><path class="tick" d="M834 254 l3 3 l5.5 -6"/><circle class="on" cx="926" cy="254" r="9"/><path class="tick" d="M922 254 l3 3 l5.5 -6"/>
   </g>
-  <g transform="translate(510 208)">
-    <rect class="card" width="220" height="222" rx="14"/>
-    <text class="text" x="18" y="38" font-size="22" font-weight="700">Vercel Sandbox</text>
-    <text class="muted" x="18" y="60" font-size="13">Ephemeral microVMs</text>
-    <g class="mono" font-size="10.5" text-anchor="middle">
-      <rect class="on" x="14" y="80" width="94" height="24" rx="12"/><text class="on-text" x="61" y="96">pause</text>
-      <rect class="off" x="112" y="80" width="94" height="24" rx="12"/><text class="off-text" x="159" y="96">snapshot</text>
-      <rect class="on" x="14" y="112" width="94" height="24" rx="12"/><text class="on-text" x="61" y="128">ttl</text>
-      <rect class="on" x="112" y="112" width="94" height="24" rx="12"/><text class="on-text" x="159" y="128">ports</text>
-      <rect class="off" x="14" y="144" width="94" height="24" rx="12"/><text class="off-text" x="61" y="160">ssh</text>
-      <rect class="off" x="112" y="144" width="94" height="24" rx="12"/><text class="off-text" x="159" y="160">desktop</text>
-      <rect class="on" x="14" y="176" width="94" height="24" rx="12"/><text class="on-text" x="61" y="192">background</text>
-      <rect class="on" x="112" y="176" width="94" height="24" rx="12"/><text class="on-text" x="159" y="192">persistentDisk</text>
-    </g>
+  <g>
+    <rect class="stripe" x="30" y="274" width="940" height="40" rx="8"/>
+    <text class="text" x="44" y="293" font-size="15" font-weight="650">Vercel Sandbox</text>
+    <text class="muted" x="44" y="307" font-size="11">Ephemeral microVMs</text>
+    <circle class="on" cx="310" cy="294" r="9"/><path class="tick" d="M306 294 l3 3 l5.5 -6"/><circle class="off" cx="398" cy="294" r="3"/><circle class="on" cx="486" cy="294" r="9"/><path class="tick" d="M482 294 l3 3 l5.5 -6"/><circle class="on" cx="574" cy="294" r="9"/><path class="tick" d="M570 294 l3 3 l5.5 -6"/><circle class="off" cx="662" cy="294" r="3"/><circle class="off" cx="750" cy="294" r="3"/><circle class="on" cx="838" cy="294" r="9"/><path class="tick" d="M834 294 l3 3 l5.5 -6"/><circle class="on" cx="926" cy="294" r="9"/><path class="tick" d="M922 294 l3 3 l5.5 -6"/>
   </g>
-  <g transform="translate(750 208)">
-    <rect class="card" width="220" height="222" rx="14"/>
-    <text class="text" x="18" y="38" font-size="22" font-weight="700">Modal</text>
-    <text class="muted" x="18" y="60" font-size="13">Serverless containers</text>
-    <g class="mono" font-size="10.5" text-anchor="middle">
-      <rect class="off" x="14" y="80" width="94" height="24" rx="12"/><text class="off-text" x="61" y="96">pause</text>
-      <rect class="on" x="112" y="80" width="94" height="24" rx="12"/><text class="on-text" x="159" y="96">snapshot</text>
-      <rect class="off" x="14" y="112" width="94" height="24" rx="12"/><text class="off-text" x="61" y="128">ttl</text>
-      <rect class="on" x="112" y="112" width="94" height="24" rx="12"/><text class="on-text" x="159" y="128">ports</text>
-      <rect class="off" x="14" y="144" width="94" height="24" rx="12"/><text class="off-text" x="61" y="160">ssh</text>
-      <rect class="off" x="112" y="144" width="94" height="24" rx="12"/><text class="off-text" x="159" y="160">desktop</text>
-      <rect class="on" x="14" y="176" width="94" height="24" rx="12"/><text class="on-text" x="61" y="192">background</text>
-      <rect class="off" x="112" y="176" width="94" height="24" rx="12"/><text class="off-text" x="159" y="192">persistentDisk</text>
-    </g>
+  <g>
+    
+    <text class="text" x="44" y="333" font-size="15" font-weight="650">Modal</text>
+    <text class="muted" x="44" y="347" font-size="11">Serverless containers</text>
+    <circle class="off" cx="310" cy="334" r="3"/><circle class="on" cx="398" cy="334" r="9"/><path class="tick" d="M394 334 l3 3 l5.5 -6"/><circle class="off" cx="486" cy="334" r="3"/><circle class="on" cx="574" cy="334" r="9"/><path class="tick" d="M570 334 l3 3 l5.5 -6"/><circle class="off" cx="662" cy="334" r="3"/><circle class="off" cx="750" cy="334" r="3"/><circle class="on" cx="838" cy="334" r="9"/><path class="tick" d="M834 334 l3 3 l5.5 -6"/><circle class="off" cx="926" cy="334" r="3"/>
   </g>
-  <g transform="translate(30 458)">
-    <rect class="card" width="220" height="222" rx="14"/>
-    <text class="text" x="18" y="38" font-size="22" font-weight="700">Boat</text>
-    <text class="muted" x="18" y="60" font-size="13">Full cloud VMs</text>
-    <g class="mono" font-size="10.5" text-anchor="middle">
-      <rect class="on" x="14" y="80" width="94" height="24" rx="12"/><text class="on-text" x="61" y="96">pause</text>
-      <rect class="on" x="112" y="80" width="94" height="24" rx="12"/><text class="on-text" x="159" y="96">snapshot</text>
-      <rect class="on" x="14" y="112" width="94" height="24" rx="12"/><text class="on-text" x="61" y="128">ttl</text>
-      <rect class="on" x="112" y="112" width="94" height="24" rx="12"/><text class="on-text" x="159" y="128">ports</text>
-      <rect class="on" x="14" y="144" width="94" height="24" rx="12"/><text class="on-text" x="61" y="160">ssh</text>
-      <rect class="on" x="112" y="144" width="94" height="24" rx="12"/><text class="on-text" x="159" y="160">desktop</text>
-      <rect class="on" x="14" y="176" width="94" height="24" rx="12"/><text class="on-text" x="61" y="192">background</text>
-      <rect class="on" x="112" y="176" width="94" height="24" rx="12"/><text class="on-text" x="159" y="192">persistentDisk</text>
-    </g>
+  <g>
+    <rect class="stripe" x="30" y="354" width="940" height="40" rx="8"/>
+    <text class="text" x="44" y="373" font-size="15" font-weight="650">Fly Sprites</text>
+    <text class="muted" x="44" y="387" font-size="11">Persistent agent computers</text>
+    <circle class="off" cx="310" cy="374" r="3"/><circle class="off" cx="398" cy="374" r="3"/><circle class="off" cx="486" cy="374" r="3"/><circle class="off" cx="574" cy="374" r="3"/><circle class="off" cx="662" cy="374" r="3"/><circle class="off" cx="750" cy="374" r="3"/><circle class="on" cx="838" cy="374" r="9"/><path class="tick" d="M834 374 l3 3 l5.5 -6"/><circle class="off" cx="926" cy="374" r="3"/>
   </g>
-  <g transform="translate(270 458)">
-    <rect class="card" width="220" height="222" rx="14"/>
-    <text class="text" x="18" y="38" font-size="22" font-weight="700">Agent37</text>
-    <text class="muted" x="18" y="60" font-size="13">VMs that sleep when idle</text>
-    <g class="mono" font-size="10.5" text-anchor="middle">
-      <rect class="on" x="14" y="80" width="94" height="24" rx="12"/><text class="on-text" x="61" y="96">pause</text>
-      <rect class="off" x="112" y="80" width="94" height="24" rx="12"/><text class="off-text" x="159" y="96">snapshot</text>
-      <rect class="off" x="14" y="112" width="94" height="24" rx="12"/><text class="off-text" x="61" y="128">ttl</text>
-      <rect class="on" x="112" y="112" width="94" height="24" rx="12"/><text class="on-text" x="159" y="128">ports</text>
-      <rect class="off" x="14" y="144" width="94" height="24" rx="12"/><text class="off-text" x="61" y="160">ssh</text>
-      <rect class="off" x="112" y="144" width="94" height="24" rx="12"/><text class="off-text" x="159" y="160">desktop</text>
-      <rect class="on" x="14" y="176" width="94" height="24" rx="12"/><text class="on-text" x="61" y="192">background</text>
-      <rect class="on" x="112" y="176" width="94" height="24" rx="12"/><text class="on-text" x="159" y="192">persistentDisk</text>
-    </g>
+  <g>
+    
+    <text class="text" x="44" y="413" font-size="15" font-weight="650">Fly Machines</text>
+    <text class="muted" x="44" y="427" font-size="11">Fast-launching VMs</text>
+    <circle class="on" cx="310" cy="414" r="9"/><path class="tick" d="M306 414 l3 3 l5.5 -6"/><circle class="off" cx="398" cy="414" r="3"/><circle class="off" cx="486" cy="414" r="3"/><circle class="off" cx="574" cy="414" r="3"/><circle class="off" cx="662" cy="414" r="3"/><circle class="off" cx="750" cy="414" r="3"/><circle class="on" cx="838" cy="414" r="9"/><path class="tick" d="M834 414 l3 3 l5.5 -6"/><circle class="on" cx="926" cy="414" r="9"/><path class="tick" d="M922 414 l3 3 l5.5 -6"/>
   </g>
-  <g transform="translate(510 458)">
-    <rect class="card" width="220" height="222" rx="14"/>
-    <text class="text" x="18" y="38" font-size="22" font-weight="700">Docker</text>
-    <text class="muted" x="18" y="60" font-size="13">Containers on your machine</text>
-    <g class="mono" font-size="10.5" text-anchor="middle">
-      <rect class="on" x="14" y="80" width="94" height="24" rx="12"/><text class="on-text" x="61" y="96">pause</text>
-      <rect class="on" x="112" y="80" width="94" height="24" rx="12"/><text class="on-text" x="159" y="96">snapshot</text>
-      <rect class="off" x="14" y="112" width="94" height="24" rx="12"/><text class="off-text" x="61" y="128">ttl</text>
-      <rect class="off" x="112" y="112" width="94" height="24" rx="12"/><text class="off-text" x="159" y="128">ports</text>
-      <rect class="off" x="14" y="144" width="94" height="24" rx="12"/><text class="off-text" x="61" y="160">ssh</text>
-      <rect class="off" x="112" y="144" width="94" height="24" rx="12"/><text class="off-text" x="159" y="160">desktop</text>
-      <rect class="on" x="14" y="176" width="94" height="24" rx="12"/><text class="on-text" x="61" y="192">background</text>
-      <rect class="on" x="112" y="176" width="94" height="24" rx="12"/><text class="on-text" x="159" y="192">persistentDisk</text>
-    </g>
+  <g>
+    <rect class="stripe" x="30" y="434" width="940" height="40" rx="8"/>
+    <text class="text" x="44" y="453" font-size="15" font-weight="650">Runloop</text>
+    <text class="muted" x="44" y="467" font-size="11">Devboxes for coding agents</text>
+    <circle class="on" cx="310" cy="454" r="9"/><path class="tick" d="M306 454 l3 3 l5.5 -6"/><circle class="on" cx="398" cy="454" r="9"/><path class="tick" d="M394 454 l3 3 l5.5 -6"/><circle class="off" cx="486" cy="454" r="3"/><circle class="on" cx="574" cy="454" r="9"/><path class="tick" d="M570 454 l3 3 l5.5 -6"/><circle class="off" cx="662" cy="454" r="3"/><circle class="off" cx="750" cy="454" r="3"/><circle class="on" cx="838" cy="454" r="9"/><path class="tick" d="M834 454 l3 3 l5.5 -6"/><circle class="on" cx="926" cy="454" r="9"/><path class="tick" d="M922 454 l3 3 l5.5 -6"/>
   </g>
-  <g transform="translate(750 458)">
-    <rect class="card-new" width="220" height="222" rx="14"/>
-    <text class="text" x="18" y="38" font-size="22" font-weight="700">Your provider</text>
-    <text class="muted" x="18" y="60" font-size="13">Any sandbox with an API</text>
-    <g class="mono code" font-size="12" xml:space="preserve">
-      <text x="18" y="102">defineProvider({</text>
-      <text x="18" y="122">  name, capabilities,</text>
-      <text x="18" y="142">  ...methods })</text>
-      <text x="18" y="178">conformance(provider)</text>
-    </g>
-    <text class="muted" x="18" y="204" font-size="12">Passes the suite, joins the list</text>
+  <g>
+    
+    <text class="text" x="44" y="493" font-size="15" font-weight="650">CodeSandbox</text>
+    <text class="muted" x="44" y="507" font-size="11">MicroVMs that hibernate</text>
+    <circle class="on" cx="310" cy="494" r="9"/><path class="tick" d="M306 494 l3 3 l5.5 -6"/><circle class="on" cx="398" cy="494" r="9"/><path class="tick" d="M394 494 l3 3 l5.5 -6"/><circle class="off" cx="486" cy="494" r="3"/><circle class="on" cx="574" cy="494" r="9"/><path class="tick" d="M570 494 l3 3 l5.5 -6"/><circle class="off" cx="662" cy="494" r="3"/><circle class="off" cx="750" cy="494" r="3"/><circle class="on" cx="838" cy="494" r="9"/><path class="tick" d="M834 494 l3 3 l5.5 -6"/><circle class="on" cx="926" cy="494" r="9"/><path class="tick" d="M922 494 l3 3 l5.5 -6"/>
   </g>
-
-  <g transform="translate(30 710)" font-size="12.5">
-    <rect class="on" width="26" height="14" rx="7"/>
-    <text class="muted" x="34" y="11.5">supported</text>
-    <rect class="off" x="112" width="26" height="14" rx="7"/>
-    <text class="muted" x="146" y="11.5">not available</text>
-    <text class="muted" x="940" y="11.5" text-anchor="end">Every provider also has create, get, list, destroy, exec, readFile and writeFile</text>
+  <g>
+    <rect class="stripe" x="30" y="514" width="940" height="40" rx="8"/>
+    <text class="text" x="44" y="533" font-size="15" font-weight="650">Morph Cloud</text>
+    <text class="muted" x="44" y="547" font-size="11">VMs with instant snapshots</text>
+    <circle class="on" cx="310" cy="534" r="9"/><path class="tick" d="M306 534 l3 3 l5.5 -6"/><circle class="on" cx="398" cy="534" r="9"/><path class="tick" d="M394 534 l3 3 l5.5 -6"/><circle class="on" cx="486" cy="534" r="9"/><path class="tick" d="M482 534 l3 3 l5.5 -6"/><circle class="on" cx="574" cy="534" r="9"/><path class="tick" d="M570 534 l3 3 l5.5 -6"/><circle class="off" cx="662" cy="534" r="3"/><circle class="off" cx="750" cy="534" r="3"/><circle class="on" cx="838" cy="534" r="9"/><path class="tick" d="M834 534 l3 3 l5.5 -6"/><circle class="on" cx="926" cy="534" r="9"/><path class="tick" d="M922 534 l3 3 l5.5 -6"/>
   </g>
+  <g>
+    
+    <text class="text" x="44" y="573" font-size="15" font-weight="650">Blaxel</text>
+    <text class="muted" x="44" y="587" font-size="11">Perpetual agent sandboxes</text>
+    <circle class="on" cx="310" cy="574" r="9"/><path class="tick" d="M306 574 l3 3 l5.5 -6"/><circle class="on" cx="398" cy="574" r="9"/><path class="tick" d="M394 574 l3 3 l5.5 -6"/><circle class="on" cx="486" cy="574" r="9"/><path class="tick" d="M482 574 l3 3 l5.5 -6"/><circle class="on" cx="574" cy="574" r="9"/><path class="tick" d="M570 574 l3 3 l5.5 -6"/><circle class="off" cx="662" cy="574" r="3"/><circle class="off" cx="750" cy="574" r="3"/><circle class="on" cx="838" cy="574" r="9"/><path class="tick" d="M834 574 l3 3 l5.5 -6"/><circle class="on" cx="926" cy="574" r="9"/><path class="tick" d="M922 574 l3 3 l5.5 -6"/>
+  </g>
+  <g>
+    <rect class="stripe" x="30" y="594" width="940" height="40" rx="8"/>
+    <text class="text" x="44" y="613" font-size="15" font-weight="650">Upstash Box</text>
+    <text class="muted" x="44" y="627" font-size="11">Boxes for coding agents</text>
+    <circle class="on" cx="310" cy="614" r="9"/><path class="tick" d="M306 614 l3 3 l5.5 -6"/><circle class="off" cx="398" cy="614" r="3"/><circle class="off" cx="486" cy="614" r="3"/><circle class="on" cx="574" cy="614" r="9"/><path class="tick" d="M570 614 l3 3 l5.5 -6"/><circle class="off" cx="662" cy="614" r="3"/><circle class="off" cx="750" cy="614" r="3"/><circle class="on" cx="838" cy="614" r="9"/><path class="tick" d="M834 614 l3 3 l5.5 -6"/><circle class="on" cx="926" cy="614" r="9"/><path class="tick" d="M922 614 l3 3 l5.5 -6"/>
+  </g>
+  <g>
+    
+    <text class="text" x="44" y="653" font-size="15" font-weight="650">Freestyle</text>
+    <text class="muted" x="44" y="667" font-size="11">VMs that fork and pause</text>
+    <circle class="on" cx="310" cy="654" r="9"/><path class="tick" d="M306 654 l3 3 l5.5 -6"/><circle class="on" cx="398" cy="654" r="9"/><path class="tick" d="M394 654 l3 3 l5.5 -6"/><circle class="on" cx="486" cy="654" r="9"/><path class="tick" d="M482 654 l3 3 l5.5 -6"/><circle class="on" cx="574" cy="654" r="9"/><path class="tick" d="M570 654 l3 3 l5.5 -6"/><circle class="off" cx="662" cy="654" r="3"/><circle class="off" cx="750" cy="654" r="3"/><circle class="on" cx="838" cy="654" r="9"/><path class="tick" d="M834 654 l3 3 l5.5 -6"/><circle class="on" cx="926" cy="654" r="9"/><path class="tick" d="M922 654 l3 3 l5.5 -6"/>
+  </g>
+  <g>
+    <rect class="stripe" x="30" y="674" width="940" height="40" rx="8"/>
+    <text class="text" x="44" y="693" font-size="15" font-weight="650">HOPX</text>
+    <text class="muted" x="44" y="707" font-size="11">Firecracker sandboxes</text>
+    <circle class="on" cx="310" cy="694" r="9"/><path class="tick" d="M306 694 l3 3 l5.5 -6"/><circle class="off" cx="398" cy="694" r="3"/><circle class="on" cx="486" cy="694" r="9"/><path class="tick" d="M482 694 l3 3 l5.5 -6"/><circle class="on" cx="574" cy="694" r="9"/><path class="tick" d="M570 694 l3 3 l5.5 -6"/><circle class="off" cx="662" cy="694" r="3"/><circle class="off" cx="750" cy="694" r="3"/><circle class="on" cx="838" cy="694" r="9"/><path class="tick" d="M834 694 l3 3 l5.5 -6"/><circle class="on" cx="926" cy="694" r="9"/><path class="tick" d="M922 694 l3 3 l5.5 -6"/>
+  </g>
+  <g>
+    
+    <text class="text" x="44" y="733" font-size="15" font-weight="650">Beam</text>
+    <text class="muted" x="44" y="747" font-size="11">Agent workspaces</text>
+    <circle class="on" cx="310" cy="734" r="9"/><path class="tick" d="M306 734 l3 3 l5.5 -6"/><circle class="on" cx="398" cy="734" r="9"/><path class="tick" d="M394 734 l3 3 l5.5 -6"/><circle class="on" cx="486" cy="734" r="9"/><path class="tick" d="M482 734 l3 3 l5.5 -6"/><circle class="on" cx="574" cy="734" r="9"/><path class="tick" d="M570 734 l3 3 l5.5 -6"/><circle class="off" cx="662" cy="734" r="3"/><circle class="off" cx="750" cy="734" r="3"/><circle class="on" cx="838" cy="734" r="9"/><path class="tick" d="M834 734 l3 3 l5.5 -6"/><circle class="on" cx="926" cy="734" r="9"/><path class="tick" d="M922 734 l3 3 l5.5 -6"/>
+  </g>
+  <g>
+    <rect class="stripe" x="30" y="754" width="940" height="40" rx="8"/>
+    <text class="text" x="44" y="773" font-size="15" font-weight="650">Boat</text>
+    <text class="muted" x="44" y="787" font-size="11">Full cloud VMs</text>
+    <circle class="on" cx="310" cy="774" r="9"/><path class="tick" d="M306 774 l3 3 l5.5 -6"/><circle class="on" cx="398" cy="774" r="9"/><path class="tick" d="M394 774 l3 3 l5.5 -6"/><circle class="on" cx="486" cy="774" r="9"/><path class="tick" d="M482 774 l3 3 l5.5 -6"/><circle class="on" cx="574" cy="774" r="9"/><path class="tick" d="M570 774 l3 3 l5.5 -6"/><circle class="on" cx="662" cy="774" r="9"/><path class="tick" d="M658 774 l3 3 l5.5 -6"/><circle class="on" cx="750" cy="774" r="9"/><path class="tick" d="M746 774 l3 3 l5.5 -6"/><circle class="on" cx="838" cy="774" r="9"/><path class="tick" d="M834 774 l3 3 l5.5 -6"/><circle class="on" cx="926" cy="774" r="9"/><path class="tick" d="M922 774 l3 3 l5.5 -6"/>
+  </g>
+  <g>
+    
+    <text class="text" x="44" y="813" font-size="15" font-weight="650">Agent37</text>
+    <text class="muted" x="44" y="827" font-size="11">VMs that sleep when idle</text>
+    <circle class="on" cx="310" cy="814" r="9"/><path class="tick" d="M306 814 l3 3 l5.5 -6"/><circle class="off" cx="398" cy="814" r="3"/><circle class="off" cx="486" cy="814" r="3"/><circle class="on" cx="574" cy="814" r="9"/><path class="tick" d="M570 814 l3 3 l5.5 -6"/><circle class="off" cx="662" cy="814" r="3"/><circle class="off" cx="750" cy="814" r="3"/><circle class="on" cx="838" cy="814" r="9"/><path class="tick" d="M834 814 l3 3 l5.5 -6"/><circle class="on" cx="926" cy="814" r="9"/><path class="tick" d="M922 814 l3 3 l5.5 -6"/>
+  </g>
+  <g>
+    <rect class="stripe" x="30" y="834" width="940" height="40" rx="8"/>
+    <text class="text" x="44" y="853" font-size="15" font-weight="650">Docker</text>
+    <text class="muted" x="44" y="867" font-size="11">Containers on your machine</text>
+    <circle class="on" cx="310" cy="854" r="9"/><path class="tick" d="M306 854 l3 3 l5.5 -6"/><circle class="on" cx="398" cy="854" r="9"/><path class="tick" d="M394 854 l3 3 l5.5 -6"/><circle class="off" cx="486" cy="854" r="3"/><circle class="off" cx="574" cy="854" r="3"/><circle class="off" cx="662" cy="854" r="3"/><circle class="off" cx="750" cy="854" r="3"/><circle class="on" cx="838" cy="854" r="9"/><path class="tick" d="M834 854 l3 3 l5.5 -6"/><circle class="on" cx="926" cy="854" r="9"/><path class="tick" d="M922 854 l3 3 l5.5 -6"/>
+  </g>
+  <g>
+    <rect class="own" x="30" y="884" width="940" height="40" rx="8"/>
+    <text class="text" x="44" y="903" font-size="15" font-weight="650">Your provider</text>
+    <text class="muted" x="44" y="917" font-size="11">Any sandbox with an API</text>
+    <text class="code mono" x="278" y="909" font-size="12.5">defineProvider({ name, capabilities, ...methods })  +  conformance(provider)</text>
+  </g>
+  <line class="rule" x1="30" x2="970" y1="932" y2="932"/>
+  <text class="muted" x="44" y="954" font-size="12.5">Providers with it</text>
+    <text class="text" x="310" y="954" font-size="15" font-weight="650" text-anchor="middle">15</text>
+    <text class="text" x="398" y="954" font-size="15" font-weight="650" text-anchor="middle">11</text>
+    <text class="text" x="486" y="954" font-size="15" font-weight="650" text-anchor="middle">9</text>
+    <text class="text" x="574" y="954" font-size="15" font-weight="650" text-anchor="middle">14</text>
+    <text class="text" x="662" y="954" font-size="15" font-weight="650" text-anchor="middle">1</text>
+    <text class="text" x="750" y="954" font-size="15" font-weight="650" text-anchor="middle">1</text>
+    <text class="text" x="838" y="954" font-size="15" font-weight="650" text-anchor="middle">17</text>
+    <text class="text" x="926" y="954" font-size="15" font-weight="650" text-anchor="middle">15</text>
+  <text class="muted" x="970" y="982" font-size="12" text-anchor="end">Every provider also has create, get, list, destroy, exec, readFile and writeFile</text>
 </svg>

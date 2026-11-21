@@ -7,6 +7,7 @@ import { daytona, type DaytonaClient, type DaytonaSandbox } from "../src/provide
 
 test("daytona maps labels, states, exec results and failures", async () => {
   const commands: string[] = [];
+  const ttls: number[] = [];
   const sessions = new Set<string>();
   const sandboxes = new Map<string, DaytonaSandbox>();
   const fake = (id: string, state: string, labels: Record<string, string>, sandboxName = id): DaytonaSandbox => {
@@ -16,6 +17,7 @@ test("daytona maps labels, states, exec results and failures", async () => {
       async stop() { sandbox.state = "stopped"; },
       async delete() { sandbox.state = "destroyed"; },
       async createSnapshot() {},
+      async setTtl(minutes) { sandbox.autoDestroyAt = new Date(Date.now() + minutes * 60_000).toISOString(); ttls.push(minutes); },
       async getPreviewLink(port) { return { url: `https://${port}-${id}.proxy.daytona.works`, token: "preview-token" }; },
       fs: { async createFolder() {}, async uploadFile() {}, async downloadFile() { return Buffer.from("x"); } },
       process: {
@@ -85,6 +87,12 @@ test("daytona maps labels, states, exec results and failures", async () => {
     { url: "https://8080-a.proxy.daytona.works", headers: { "X-Daytona-Preview-Token": "preview-token" } });
   assert.deepEqual(await provider.listSnapshots(), ["mine", "mine-2"]);
   await provider.deleteSnapshot("missing");
+
+  assert.equal((await provider.get("a"))?.expiresAt, undefined);
+  await provider.setTtl("a", 1_801);
+  assert.deepEqual(ttls, [31], "seconds round up to whole minutes");
+  const left = ((await provider.get("a"))!.expiresAt!.getTime() - Date.now()) / 1000;
+  assert.ok(left > 1_800 && left <= 1_860, "get() reports Daytona's autoDestroyAt as expiresAt");
 
   await provider.pause("a");
   assert.equal((await provider.get("a"))?.state, "stopped");

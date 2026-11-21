@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       providers:
-        description: "Cloud providers to run the conformance suite against (space separated: boat agent37 e2b daytona vercel modal)"
+        description: "Cloud providers to run the conformance suite against (space separated, e.g. "e2b daytona"; "all" runs every one)"
         default: ""
 permissions: { contents: read }
 jobs:
@@ -26,24 +26,37 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix: { provider: [boat, agent37, e2b, daytona, vercel, modal] }
+      matrix: { provider: [agent37, beam, blaxel, boat, codesandbox, daytona, e2b, fly, freestyle, hopx, modal, morph, runloop, sprites, upstash, vercel] }
     steps:
       - uses: actions/checkout@v4
-        if: contains(github.event.inputs.providers, matrix.provider)
+        if: (github.event.inputs.providers == 'all' || contains(format(' {0} ', github.event.inputs.providers), format(' {0} ', matrix.provider)))
       - uses: pnpm/action-setup@v4
-        if: contains(github.event.inputs.providers, matrix.provider)
+        if: (github.event.inputs.providers == 'all' || contains(format(' {0} ', github.event.inputs.providers), format(' {0} ', matrix.provider)))
       - uses: actions/setup-node@v4
-        if: contains(github.event.inputs.providers, matrix.provider)
+        if: (github.event.inputs.providers == 'all' || contains(format(' {0} ', github.event.inputs.providers), format(' {0} ', matrix.provider)))
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile --ignore-scripts && pnpm run test:${{ matrix.provider }}
-        if: contains(github.event.inputs.providers, matrix.provider)
+        if: (github.event.inputs.providers == 'all' || contains(format(' {0} ', github.event.inputs.providers), format(' {0} ', matrix.provider)))
         env:
-          BOAT_API_KEY: ${{ secrets.BOAT_API_KEY }}
           AGENT37_API_KEY: ${{ secrets.AGENT37_API_KEY }}
-          E2B_API_KEY: ${{ secrets.E2B_API_KEY }}
+          BEAM_TOKEN: ${{ secrets.BEAM_TOKEN }}
+          BEAM_WORKSPACE_ID: ${{ secrets.BEAM_WORKSPACE_ID }}
+          BL_API_KEY: ${{ secrets.BL_API_KEY }}
+          BL_WORKSPACE: ${{ secrets.BL_WORKSPACE }}
+          BOAT_API_KEY: ${{ secrets.BOAT_API_KEY }}
+          CSB_API_KEY: ${{ secrets.CSB_API_KEY }}
           DAYTONA_API_KEY: ${{ secrets.DAYTONA_API_KEY }}
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          E2B_API_KEY: ${{ secrets.E2B_API_KEY }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_APP: ${{ secrets.FLY_APP }}
+          FREESTYLE_API_KEY: ${{ secrets.FREESTYLE_API_KEY }}
+          HOPX_API_KEY: ${{ secrets.HOPX_API_KEY }}
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+          MORPH_API_KEY: ${{ secrets.MORPH_API_KEY }}
+          RUNLOOP_API_KEY: ${{ secrets.RUNLOOP_API_KEY }}
+          SPRITES_TOKEN: ${{ secrets.SPRITES_TOKEN }}
+          UPSTASH_BOX_API_KEY: ${{ secrets.UPSTASH_BOX_API_KEY }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

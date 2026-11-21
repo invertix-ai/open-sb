@@ -12,7 +12,7 @@ export interface SandboxInfo {
   state: SandboxState;
   labels: Labels;
   createdAt?: Date;
-  /** When the provider will stop the sandbox on its own (`ttl` capability). */
+  /** When the provider will end the sandbox on its own (`ttl` capability): stop or delete, per provider. */
   expiresAt?: Date;
 }
 
@@ -65,7 +65,8 @@ export interface Snapshot {
   deleteSnapshot(name: string, options?: CallOptions): Promise<void>;
 }
 
-/** The provider stops the sandbox on its own after a lifetime the caller sets and extends. */
+/** The provider ends the sandbox on its own after a lifetime the caller sets. Some providers stop it, others
+ * delete it with its disk: each provider file says which. */
 export interface Ttl {
   setTtl(id: string, seconds: number, options?: CallOptions): Promise<void>;
 }

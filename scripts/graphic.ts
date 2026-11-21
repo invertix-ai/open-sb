@@ -1,97 +1,110 @@
-// Draws assets/providers.svg, the provider overview at the top of the README: node scripts/graphic.ts
-// The capability lists come from the providers themselves, so the picture cannot drift from the code.
+// Draws assets/providers.svg, the provider overview at the top of the README: pnpm run graphic
+// The capability marks come from the providers themselves, so the picture cannot drift from the code.
 import { writeFileSync } from "node:fs";
-import { CAPABILITIES } from "../src/types.ts";
+import { CAPABILITIES, type AnyProvider } from "../src/types.ts";
 import { agent37 } from "../src/providers/agent37.ts";
+import { beam } from "../src/providers/beam.ts";
+import { blaxel } from "../src/providers/blaxel.ts";
 import { boat } from "../src/providers/boat.ts";
+import { codesandbox } from "../src/providers/codesandbox.ts";
 import { daytona } from "../src/providers/daytona.ts";
 import { docker } from "../src/providers/docker.ts";
 import { e2b } from "../src/providers/e2b.ts";
+import { fly } from "../src/providers/fly.ts";
+import { freestyle } from "../src/providers/freestyle.ts";
+import { hopx } from "../src/providers/hopx.ts";
 import { modal } from "../src/providers/modal.ts";
+import { morph } from "../src/providers/morph.ts";
+import { runloop } from "../src/providers/runloop.ts";
+import { sprites } from "../src/providers/sprites.ts";
+import { upstash } from "../src/providers/upstash.ts";
 import { vercel } from "../src/providers/vercel.ts";
 
-const providers = [
-  { title: "E2B", kind: "Firecracker microVMs", provider: e2b({ apiKey: "unused" }) },
-  { title: "Daytona", kind: "Fast dev sandboxes", provider: daytona({ apiKey: "unused" }) },
-  { title: "Vercel Sandbox", kind: "Ephemeral microVMs", provider: vercel({ token: "unused", teamId: "unused", projectId: "unused" }) },
-  { title: "Modal", kind: "Serverless containers", provider: modal({ tokenId: "unused", tokenSecret: "unused" }) },
-  { title: "Boat", kind: "Full cloud VMs", provider: boat({ apiKey: "unused" }) },
-  { title: "Agent37", kind: "VMs that sleep when idle", provider: agent37({ apiKey: "unused" }) },
+// Constructing a provider makes no network calls; the keys are placeholders.
+const key = "unused";
+const rows: { title: string; kind: string; provider: AnyProvider }[] = [
+  { title: "E2B", kind: "Firecracker microVMs", provider: e2b({ apiKey: key }) },
+  { title: "Daytona", kind: "Fast dev sandboxes", provider: daytona({ apiKey: key }) },
+  { title: "Vercel Sandbox", kind: "Ephemeral microVMs", provider: vercel({ token: key, teamId: key, projectId: key }) },
+  { title: "Modal", kind: "Serverless containers", provider: modal({ tokenId: key, tokenSecret: key }) },
+  { title: "Fly Sprites", kind: "Persistent agent computers", provider: sprites({ token: key }) },
+  { title: "Fly Machines", kind: "Fast-launching VMs", provider: fly({ apiToken: key, app: key }) },
+  { title: "Runloop", kind: "Devboxes for coding agents", provider: runloop({ apiKey: key }) },
+  { title: "CodeSandbox", kind: "MicroVMs that hibernate", provider: codesandbox({ apiKey: key }) },
+  { title: "Morph Cloud", kind: "VMs with instant snapshots", provider: morph({ apiKey: key }) },
+  { title: "Blaxel", kind: "Perpetual agent sandboxes", provider: blaxel({ apiKey: key, workspace: key }) },
+  { title: "Upstash Box", kind: "Boxes for coding agents", provider: upstash({ apiKey: key }) },
+  { title: "Freestyle", kind: "VMs that fork and pause", provider: freestyle({ apiKey: key }) },
+  { title: "HOPX", kind: "Firecracker sandboxes", provider: hopx({ apiKey: key }) },
+  { title: "Beam", kind: "Agent workspaces", provider: beam({ token: key }) },
+  { title: "Boat", kind: "Full cloud VMs", provider: boat({ apiKey: key }) },
+  { title: "Agent37", kind: "VMs that sleep when idle", provider: agent37({ apiKey: key }) },
   { title: "Docker", kind: "Containers on your machine", provider: docker() },
 ];
 
-const W = 1000, CARD_W = 220, CARD_H = 222, GAP = 20, LEFT = 30, ROW1 = 208, ROW2 = ROW1 + CARD_H + 28;
-const H = ROW2 + CARD_H + 58;
+const W = 1000, LEFT = 30, NAME_W = 236, COL_W = (W - 2 * LEFT - NAME_W) / CAPABILITIES.length;
+const HEAD_Y = 176, ROW_H = 40, TOP = HEAD_Y + 18;
+const OWN_Y = TOP + rows.length * ROW_H + 10, COUNT_Y = OWN_Y + ROW_H + 30, H = COUNT_Y + 46;
+const colX = (i: number) => LEFT + NAME_W + i * COL_W + COL_W / 2;
 const escape = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
-function card(index: number, body: string, dashed = false) {
-  const x = LEFT + (index % 4) * (CARD_W + GAP), y = index < 4 ? ROW1 : ROW2;
-  return `  <g transform="translate(${x} ${y})">
-    <rect class="${dashed ? "card-new" : "card"}" width="${CARD_W}" height="${CARD_H}" rx="14"/>
-${body}  </g>\n`;
-}
+// camelCase names break into two lines so neighbouring headers never touch.
+const header = CAPABILITIES.map((capability, i) => {
+  const [first, second] = capability.replace(/([a-z])([A-Z])/, "$1 $2").toLowerCase().split(" ");
+  return second
+    ? `    <text class="muted mono" x="${colX(i)}" y="${HEAD_Y - 14}" font-size="11.5" text-anchor="middle">${first}</text>\n` +
+      `    <text class="muted mono" x="${colX(i)}" y="${HEAD_Y}" font-size="11.5" text-anchor="middle">${second}</text>`
+    : `    <text class="muted mono" x="${colX(i)}" y="${HEAD_Y}" font-size="11.5" text-anchor="middle">${first}</text>`;
+}).join("\n");
 
-function providerCard(index: number, title: string, kind: string, has: readonly string[]) {
-  const chips = CAPABILITIES.map((capability, i) => {
-    const x = i % 2 === 0 ? 14 : 112, y = 80 + Math.floor(i / 2) * 32, on = has.includes(capability);
-    return `      <rect class="${on ? "on" : "off"}" x="${x}" y="${y}" width="94" height="24" rx="12"/>` +
-      `<text class="${on ? "on-text" : "off-text"}" x="${x + 47}" y="${y + 16}">${capability}</text>`;
-  }).join("\n");
-  return card(index, `    <text class="text" x="18" y="38" font-size="22" font-weight="700">${escape(title)}</text>
-    <text class="muted" x="18" y="60" font-size="13">${escape(kind)}</text>
-    <g class="mono" font-size="10.5" text-anchor="middle">
-${chips}
-    </g>
-`);
-}
+const body = rows.map((row, r) => {
+  const y = TOP + r * ROW_H;
+  const marks = CAPABILITIES.map((capability, i) => row.provider.capabilities.includes(capability)
+    ? `<circle class="on" cx="${colX(i)}" cy="${y + ROW_H / 2}" r="9"/><path class="tick" d="M${colX(i) - 4} ${y + ROW_H / 2} l3 3 l5.5 -6"/>`
+    : `<circle class="off" cx="${colX(i)}" cy="${y + ROW_H / 2}" r="3"/>`).join("");
+  return `  <g>
+    ${r % 2 === 0 ? `<rect class="stripe" x="${LEFT}" y="${y}" width="${W - 2 * LEFT}" height="${ROW_H}" rx="8"/>` : ""}
+    <text class="text" x="${LEFT + 14}" y="${y + 19}" font-size="15" font-weight="650">${escape(row.title)}</text>
+    <text class="muted" x="${LEFT + 14}" y="${y + 33}" font-size="11">${escape(row.kind)}</text>
+    ${marks}
+  </g>`;
+}).join("\n");
 
-const own = card(7, `    <text class="text" x="18" y="38" font-size="22" font-weight="700">Your provider</text>
-    <text class="muted" x="18" y="60" font-size="13">Any sandbox with an API</text>
-    <g class="mono code" font-size="12" xml:space="preserve">
-      <text x="18" y="102">defineProvider({</text>
-      <text x="18" y="122">  name, capabilities,</text>
-      <text x="18" y="142">  ...methods })</text>
-      <text x="18" y="178">conformance(provider)</text>
-    </g>
-    <text class="muted" x="18" y="204" font-size="12">Passes the suite, joins the list</text>
-`, true);
-
-const wires = [0, 1, 2, 3].map(i => {
-  const x = LEFT + i * (CARD_W + GAP) + CARD_W / 2;
-  return `  <path class="wire" d="M500 124 C500 170, ${x} 160, ${x} ${ROW1}"/>`;
+const counts = CAPABILITIES.map((capability, i) => {
+  const n = rows.filter(row => row.provider.capabilities.includes(capability)).length;
+  return `    <text class="text" x="${colX(i)}" y="${COUNT_Y}" font-size="15" font-weight="650" text-anchor="middle">${n}</text>`;
 }).join("\n");
 
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="title desc">
-  <title id="title">open-sb providers</title>
-  <desc id="desc">One interface, open-sb, over ${providers.map(p => p.title).join(", ")} and your own provider, with the capabilities each one supports.</desc>
+  <title id="title">open-sb providers and capabilities</title>
+  <desc id="desc">One interface, open-sb, over ${rows.length} sandbox providers: ${rows.map(row => row.title).join(", ")}. A mark shows each optional capability a provider supports.</desc>
   <style>
     .bg { fill: #ffffff; }
     .hub { fill: #111827; }
     .hub-text { fill: #ffffff; }
     .hub-muted { fill: #9ca3af; }
-    .card { fill: #f9fafb; stroke: #e5e7eb; stroke-width: 1.5; }
-    .card-new { fill: none; stroke: #9ca3af; stroke-width: 1.5; stroke-dasharray: 6 5; }
+    .stripe { fill: #f6f8fa; }
+    .own { fill: none; stroke: #9ca3af; stroke-width: 1.5; stroke-dasharray: 6 5; }
     .text { fill: #111827; }
     .muted { fill: #6b7280; }
-    .wire { fill: none; stroke: #d1d5db; stroke-width: 2; }
+    .rule { stroke: #e5e7eb; stroke-width: 1; }
     .on { fill: #10b981; }
-    .on-text { fill: #ffffff; }
-    .off { fill: none; stroke: #d1d5db; stroke-width: 1.2; }
-    .off-text { fill: #9ca3af; }
+    .tick { fill: none; stroke: #ffffff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    .off { fill: #d1d5db; }
     .code { fill: #374151; }
     @media (prefers-color-scheme: dark) {
       .bg { fill: #0d1117; }
       .hub { fill: #f9fafb; }
       .hub-text { fill: #0d1117; }
       .hub-muted { fill: #4b5563; }
-      .card { fill: #161b22; stroke: #30363d; }
-      .card-new { stroke: #6e7681; }
+      .stripe { fill: #161b22; }
+      .own { stroke: #6e7681; }
       .text { fill: #f0f6fc; }
       .muted { fill: #8b949e; }
-      .wire { stroke: #30363d; }
+      .rule { stroke: #30363d; }
       .on { fill: #2ea043; }
-      .off { stroke: #30363d; }
-      .off-text { fill: #6e7681; }
+      .tick { stroke: #0d1117; }
+      .off { fill: #30363d; }
       .code { fill: #c9d1d9; }
     }
     text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
@@ -99,21 +112,24 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" 
   </style>
 
   <rect class="bg" width="${W}" height="${H}" rx="20"/>
-${wires}
-  <rect class="hub" x="290" y="32" width="420" height="92" rx="18"/>
+  <rect class="hub" x="250" y="32" width="500" height="92" rx="18"/>
   <text class="hub-text mono" x="500" y="78" font-size="30" font-weight="700" text-anchor="middle">open-sb</text>
-  <text class="hub-muted" x="500" y="106" font-size="13.5" text-anchor="middle">one interface for every sandbox provider</text>
+  <text class="hub-muted" x="500" y="106" font-size="13.5" text-anchor="middle">one interface · ${rows.length} sandbox providers · one config file</text>
 
-${providers.map((p, i) => providerCard(i, p.title, p.kind, p.provider.capabilities)).join("")}${own}
-  <g transform="translate(30 ${H - 28})" font-size="12.5">
-    <rect class="on" width="26" height="14" rx="7"/>
-    <text class="muted" x="34" y="11.5">supported</text>
-    <rect class="off" x="112" width="26" height="14" rx="7"/>
-    <text class="muted" x="146" y="11.5">not available</text>
-    <text class="muted" x="940" y="11.5" text-anchor="end">Every provider also has create, get, list, destroy, exec, readFile and writeFile</text>
+${header}
+${body}
+  <g>
+    <rect class="own" x="${LEFT}" y="${OWN_Y}" width="${W - 2 * LEFT}" height="${ROW_H}" rx="8"/>
+    <text class="text" x="${LEFT + 14}" y="${OWN_Y + 19}" font-size="15" font-weight="650">Your provider</text>
+    <text class="muted" x="${LEFT + 14}" y="${OWN_Y + 33}" font-size="11">Any sandbox with an API</text>
+    <text class="code mono" x="${LEFT + NAME_W + 12}" y="${OWN_Y + 25}" font-size="12.5">defineProvider({ name, capabilities, ...methods })  +  conformance(provider)</text>
   </g>
+  <line class="rule" x1="${LEFT}" x2="${W - LEFT}" y1="${COUNT_Y - 22}" y2="${COUNT_Y - 22}"/>
+  <text class="muted" x="${LEFT + 14}" y="${COUNT_Y}" font-size="12.5">Providers with it</text>
+${counts}
+  <text class="muted" x="${W - LEFT}" y="${H - 18}" font-size="12" text-anchor="end">Every provider also has create, get, list, destroy, exec, readFile and writeFile</text>
 </svg>
 `;
 
 writeFileSync(new URL("../assets/providers.svg", import.meta.url), svg);
-for (const p of providers) console.log(p.title.padEnd(16), p.provider.capabilities.join(", "));
+for (const row of rows) console.log(row.title.padEnd(16), row.provider.capabilities.join(", "));

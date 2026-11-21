@@ -1,9 +1,9 @@
 // Daytona (daytona.io): containers started from snapshots, with stop/start that keeps the disk, named snapshots
 // taken from a running sandbox, and private preview URLs for ports. Uses the official `@daytonaio/sdk` (a peer
-// dependency). Limits: no SSH with a caller's key (Daytona hands out its own access tokens instead), no desktop
-// here, and no `ttl`: Daytona's wall-clock TTL deletes the sandbox and its disk, and its auto-stop is an idle
-// timer with no fixed deadline, so neither matches "stops on its own at expiresAt". Daytona's SDK takes no
-// AbortSignal: an abort or timeout stops waiting, while the request itself runs to completion at Daytona.
+// dependency). On Daytona, `ttl` expiry DELETES the sandbox and its disk (Daytona's wall-clock TTL, counted even
+// while stopped), it does not stop it; `expiresAt` is Daytona's `autoDestroyAt`. Limits: no SSH with a caller's
+// key (Daytona hands out its own access tokens instead) and no desktop here. Daytona's SDK takes no AbortSignal:
+// an abort or timeout stops waiting, while the request itself runs to completion at Daytona.
 import { createHash, randomUUID } from "node:crypto";
 import {
   Daytona, DaytonaConflictError, DaytonaConnectionError, DaytonaError, DaytonaInvalidArgumentError,
@@ -20,10 +20,13 @@ export interface DaytonaSandbox {
   state?: string;
   labels: Record<string, string>;
   createdAt?: string;
+  /** When Daytona's TTL deletes the sandbox. */
+  autoDestroyAt?: string;
   start(timeout?: number): Promise<void>;
   stop(timeout?: number): Promise<void>;
   delete(timeout?: number): Promise<void>;
   createSnapshot(name: string, timeout?: number): Promise<void>;
+  setTtl(ttlMinutes: number): Promise<void>;
   getPreviewLink(port: number): Promise<{ url: string; token?: string }>;
   fs: {
     createFolder(path: string, mode: string): Promise<void>;
@@ -132,6 +135,7 @@ export function daytona(options: DaytonaOptions = {}) {
     state: STATES[String(sandbox.state)] ?? "starting",
     labels: { ...sandbox.labels },
     createdAt: sandbox.createdAt ? new Date(sandbox.createdAt) : undefined,
+    expiresAt: sandbox.autoDestroyAt ? new Date(sandbox.autoDestroyAt) : undefined,
   });
 
   const notFound = (error: unknown) => error instanceof SandboxError && error.kind === "not_found";
@@ -169,7 +173,7 @@ export function daytona(options: DaytonaOptions = {}) {
 
   return defineProvider({
     name,
-    capabilities: ["pause", "snapshot", "ports", "background", "persistentDisk"] as const,
+    capabilities: ["pause", "snapshot", "ttl", "ports", "background", "persistentDisk"] as const,
 
     async create(createOptions = {}) {
       const key = createOptions.idempotencyKey;
@@ -285,6 +289,13 @@ export function daytona(options: DaytonaOptions = {}) {
       } catch (error) {
         if (!notFound(error)) throw error;
       }
+    },
+
+    /** Deletes the sandbox and its disk `seconds` from now (rounded up to whole minutes); calling again re-anchors it. */
+    async setTtl(id, seconds, callOptions = {}) {
+      const minutes = Math.max(1, Math.ceil(seconds / 60));
+      const sandbox = await call(daytona => daytona.get(id), callOptions.signal);
+      await call(() => sandbox.setTtl(minutes), callOptions.signal);
     },
 
     /** Private sandboxes answer the preview URL only with the token header; keep both server-side. */

@@ -1,7 +1,7 @@
 {
   "name": "@invertix/open-sb",
   "version": "0.1.0",
-  "description": "One TypeScript interface for agent sandboxes: Boat, E2B, Daytona, Vercel Sandbox, Modal, Agent37 and Docker, with capabilities checked at type-check time, at startup and in CI.",
+  "description": "One TypeScript interface for agent sandboxes across 17 providers, with capabilities checked at type-check time, at startup and in CI.",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -10,13 +10,23 @@
   "exports": {
     ".": "./src/index.ts",
     "./conformance": "./src/conformance.ts",
-    "./boat": "./src/providers/boat.ts",
     "./agent37": "./src/providers/agent37.ts",
+    "./beam": "./src/providers/beam.ts",
+    "./blaxel": "./src/providers/blaxel.ts",
+    "./boat": "./src/providers/boat.ts",
+    "./codesandbox": "./src/providers/codesandbox.ts",
+    "./daytona": "./src/providers/daytona.ts",
     "./docker": "./src/providers/docker.ts",
     "./e2b": "./src/providers/e2b.ts",
-    "./daytona": "./src/providers/daytona.ts",
-    "./vercel": "./src/providers/vercel.ts",
-    "./modal": "./src/providers/modal.ts"
+    "./fly": "./src/providers/fly.ts",
+    "./freestyle": "./src/providers/freestyle.ts",
+    "./hopx": "./src/providers/hopx.ts",
+    "./modal": "./src/providers/modal.ts",
+    "./morph": "./src/providers/morph.ts",
+    "./runloop": "./src/providers/runloop.ts",
+    "./sprites": "./src/providers/sprites.ts",
+    "./upstash": "./src/providers/upstash.ts",
+    "./vercel": "./src/providers/vercel.ts"
   },
   "bin": {
     "open-sb": "./bin/open-sb.ts"
@@ -30,20 +40,40 @@
   "scripts": {
     "check": "tsc --noEmit",
     "test": "node --test test/*.test.ts",
-    "test:docker": "node --test test/docker.conformance.ts",
-    "test:boat": "node --test test/boat.conformance.ts",
+    "graphic": "node scripts/graphic.ts",
     "test:agent37": "node --test test/agent37.conformance.ts",
-    "test:e2b": "node --test test/e2b.conformance.ts",
+    "test:beam": "node --test test/beam.conformance.ts",
+    "test:blaxel": "node --test test/blaxel.conformance.ts",
+    "test:boat": "node --test test/boat.conformance.ts",
+    "test:codesandbox": "node --test test/codesandbox.conformance.ts",
     "test:daytona": "node --test test/daytona.conformance.ts",
-    "test:vercel": "node --test test/vercel.conformance.ts",
-    "test:modal": "node --test test/modal.conformance.ts"
+    "test:docker": "node --test test/docker.conformance.ts",
+    "test:e2b": "node --test test/e2b.conformance.ts",
+    "test:fly": "node --test test/fly.conformance.ts",
+    "test:freestyle": "node --test test/freestyle.conformance.ts",
+    "test:hopx": "node --test test/hopx.conformance.ts",
+    "test:modal": "node --test test/modal.conformance.ts",
+    "test:morph": "node --test test/morph.conformance.ts",
+    "test:runloop": "node --test test/runloop.conformance.ts",
+    "test:sprites": "node --test test/sprites.conformance.ts",
+    "test:upstash": "node --test test/upstash.conformance.ts",
+    "test:vercel": "node --test test/vercel.conformance.ts"
   },
   "peerDependencies": {
     "@boatdev/sdk": ">=1.13.0",
     "e2b": ">=2.64.0",
     "@daytonaio/sdk": ">=0.232.0",
     "@vercel/sandbox": ">=4.1.0",
-    "modal": ">=0.11.2"
+    "modal": ">=0.11.2",
+    "@fly/sprites": ">=0.2.5",
+    "@runloop/api-client": ">=3.0.0",
+    "@codesandbox/sdk": ">=2.4.2",
+    "morphcloud": ">=0.0.20",
+    "@blaxel/core": ">=0.3.40",
+    "@upstash/box": ">=0.8.1",
+    "freestyle": ">=0.2.23",
+    "@hopx-ai/sdk": ">=0.5.1",
+    "@beamcloud/beam-js": ">=1.1.6"
   },
   "peerDependenciesMeta": {
     "@boatdev/sdk": {
@@ -60,15 +90,51 @@
     },
     "modal": {
       "optional": true
+    },
+    "@fly/sprites": {
+      "optional": true
+    },
+    "@runloop/api-client": {
+      "optional": true
+    },
+    "@codesandbox/sdk": {
+      "optional": true
+    },
+    "morphcloud": {
+      "optional": true
+    },
+    "@blaxel/core": {
+      "optional": true
+    },
+    "@upstash/box": {
+      "optional": true
+    },
+    "freestyle": {
+      "optional": true
+    },
+    "@hopx-ai/sdk": {
+      "optional": true
+    },
+    "@beamcloud/beam-js": {
+      "optional": true
     }
   },
   "devDependencies": {
+    "@beamcloud/beam-js": "^1.1.6",
+    "@blaxel/core": "^0.3.40",
     "@boatdev/sdk": "^1.13.0",
+    "@codesandbox/sdk": "^2.4.2",
     "@daytonaio/sdk": "^0.232.0",
+    "@fly/sprites": "^0.2.5",
+    "@hopx-ai/sdk": "^0.5.1",
+    "@runloop/api-client": "^3.0.0",
     "@types/node": "^26.6.6",
+    "@upstash/box": "^0.8.1",
     "@vercel/sandbox": "^4.1.0",
     "e2b": "^2.64.0",
+    "freestyle": "^0.2.23",
     "modal": "^0.11.2",
+    "morphcloud": "^0.0.20",
     "typescript": "^7.0.2"
   },
   "packageManager": "pnpm@10.34.5",
@@ -80,14 +146,28 @@
     "daytona",
     "vercel-sandbox",
     "modal",
+    "fly",
+    "sprites",
+    "runloop",
+    "codesandbox",
+    "morph",
+    "blaxel",
+    "upstash",
+    "freestyle",
+    "hopx",
+    "beam",
     "boat",
     "docker",
     "vm"
   ],
   "pnpm": {
     "ignoredBuiltDependencies": [
+      "bufferutil",
       "cbor-extract",
-      "protobufjs"
+      "cpu-features",
+      "protobufjs",
+      "ssh2",
+      "utf-8-validate"
     ]
   }
 }

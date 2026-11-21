@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/providers.svg" alt="open-sb: one interface over E2B, Daytona, Vercel Sandbox, Modal, Boat, Agent37, Docker and your own provider" width="100%">
+  <img src="assets/providers.svg" alt="open-sb: one interface over 17 sandbox providers, with the capabilities each one supports" width="100%">
 </p>
 
 <h1 align="center">open-sb</h1>
@@ -22,8 +22,9 @@ Every provider has its own API, its own words for the same things, and its own g
 keeping a second one ready for when the first is down, means rewriting the glue each time.
 
 open-sb is that glue, written once. Think of it as OpenTofu for agent sandboxes: a config file lists the
-providers, and every provider speaks the same interface. It ships with **E2B, Daytona, Vercel Sandbox, Modal,
-Boat, Agent37 and Docker**, and every integration makes the next switch cheaper.
+providers, and every provider speaks the same interface. It ships with **17 providers**: E2B, Daytona, Vercel
+Sandbox, Modal, Fly Sprites, Fly Machines, Runloop, CodeSandbox, Morph Cloud, Blaxel, Upstash Box, Freestyle,
+HOPX, Beam, Boat, Agent37 and Docker. Every integration makes the next switch cheaper.
 
 - **One interface.** `create`, `exec`, `readFile`, `writeFile` and friends work the same on every provider.
 - **Capabilities you can check.** Pause, snapshots, SSH, port URLs and more are declared per provider, and a
@@ -118,7 +119,7 @@ Optional capabilities:
 | `pause` | `pause`, `resume` | Sleep and wake; the sandbox keeps its identity |
 | `persistentDisk` | | Files survive pause and resume (requires `pause`) |
 | `snapshot` | `snapshot`, `listSnapshots`, `deleteSnapshot` | Save a sandbox as a named image; `create({ image })` starts from it |
-| `ttl` | `setTtl` | The provider stops the sandbox on its own; `get()` reports `expiresAt` |
+| `ttl` | `setTtl` | The provider ends the sandbox on its own (stops or deletes it, per provider); `get()` reports `expiresAt` |
 | `ports` | `portUrl` | A private HTTPS address for a port inside the sandbox |
 | `ssh` | `ssh` | An SSH endpoint and host key for a public key you supply |
 | `desktop` | `desktop` | A viewer URL for a graphical desktop |
@@ -129,22 +130,37 @@ Every failure is a `SandboxError` with a `kind`: `unavailable` (an outage, so fa
 
 ## Providers
 
-| Provider | Import | Install | Capabilities | Conformance |
+| Provider | Import | Install | Capabilities | Live conformance |
 | --- | --- | --- | --- | --- |
-| [E2B](https://e2b.dev) | `@invertix/open-sb/e2b` | `e2b` | pause, persistentDisk, snapshot, ttl, ports, background | needs a run with a key |
-| [Daytona](https://daytona.io) | `@invertix/open-sb/daytona` | `@daytonaio/sdk` | pause, persistentDisk, snapshot, ports, background | needs a run with a key |
-| [Vercel Sandbox](https://vercel.com/docs/vercel-sandbox) | `@invertix/open-sb/vercel` | `@vercel/sandbox` | pause, persistentDisk, ttl, ports, background | needs a run with a key |
-| [Modal](https://modal.com) | `@invertix/open-sb/modal` | `modal` | snapshot, ports, background | needs a run with a key |
-| [Boat](https://boat.dev) | `@invertix/open-sb/boat` | `@boatdev/sdk` | all eight | 7 of 11 pass; files, ports, snapshot and delete need a key with more permissions |
+| [E2B](https://e2b.dev) | `@invertix/open-sb/e2b` | `e2b` | pause, persistentDisk, snapshot, ttl, ports, background | not run yet |
+| [Daytona](https://daytona.io) | `@invertix/open-sb/daytona` | `@daytonaio/sdk` | pause, persistentDisk, snapshot, ttl, ports, background | not run yet |
+| [Vercel Sandbox](https://vercel.com/docs/vercel-sandbox) | `@invertix/open-sb/vercel` | `@vercel/sandbox` | pause, persistentDisk, ttl, ports, background | not run yet |
+| [Modal](https://modal.com) | `@invertix/open-sb/modal` | `modal` | snapshot, ports, background | not run yet |
+| [Fly Sprites](https://sprites.dev) | `@invertix/open-sb/sprites` | `@fly/sprites` (Node 24+) | background | not run yet |
+| [Fly Machines](https://fly.io/docs/machines/) | `@invertix/open-sb/fly` | nothing (REST API) | pause, persistentDisk, background | not run yet |
+| [Runloop](https://runloop.ai) | `@invertix/open-sb/runloop` | `@runloop/api-client` | pause, persistentDisk, snapshot, ports, background | not run yet |
+| [CodeSandbox](https://codesandbox.io/sdk) | `@invertix/open-sb/codesandbox` | `@codesandbox/sdk` | pause, persistentDisk, snapshot, ports, background | not run yet |
+| [Morph Cloud](https://cloud.morph.so) | `@invertix/open-sb/morph` | `morphcloud` | pause, persistentDisk, snapshot, ttl, ports, background | not run yet |
+| [Blaxel](https://blaxel.ai) | `@invertix/open-sb/blaxel` | `@blaxel/core` | pause, persistentDisk, snapshot, ttl, ports, background | not run yet |
+| [Upstash Box](https://upstash.com) | `@invertix/open-sb/upstash` | `@upstash/box` | pause, persistentDisk, ports, background | not run yet |
+| [Freestyle](https://freestyle.sh) | `@invertix/open-sb/freestyle` | `freestyle` | pause, persistentDisk, snapshot, ttl, ports, background | not run yet |
+| [HOPX](https://hopx.ai) | `@invertix/open-sb/hopx` | `@hopx-ai/sdk` | pause, persistentDisk, ttl, ports, background | not run yet |
+| [Beam](https://beam.cloud) | `@invertix/open-sb/beam` | `@beamcloud/beam-js` | pause, persistentDisk, snapshot, ttl, ports, background | not run yet |
+| [Boat](https://boat.dev) | `@invertix/open-sb/boat` | `@boatdev/sdk` | all eight | 7 of 11 pass |
 | [Agent37](https://agent37.com) | `@invertix/open-sb/agent37` | nothing | pause, persistentDisk, ports, background | passes |
-| [Docker](https://www.docker.com) | `@invertix/open-sb/docker` | nothing; needs Docker running | pause, persistentDisk, snapshot, background | passes, in every CI run |
+| [Docker](https://www.docker.com) | `@invertix/open-sb/docker` | nothing; needs Docker running | pause, persistentDisk, snapshot, background | passes, every CI run |
 
 Each provider's SDK is an optional peer dependency: install only the ones you use. Docker is handy for local
 development and tests: no account, no cost, same interface.
 
-Why a capability is missing is written at the top of each provider file. Two examples: Daytona's TTL deletes the
-sandbox and its disk rather than stopping it, so open-sb does not call it `ttl`; Modal tunnels and Vercel
-ports must be declared when the sandbox is created, so both take a `ports` option.
+Capabilities are only declared when the provider can honour them exactly; why one is missing is written at the
+top of each provider file. A few examples:
+
+- Modal fixes a sandbox's lifetime at creation and cannot extend it, so it has no `ttl`.
+- Fly Machines lose their root filesystem on stop, so `pause` uses suspend, which keeps it.
+- Fly Sprites suspend themselves when idle and have no pause call, so they offer only the core and `background`.
+- Where a provider has no labels or idempotency key, open-sb stores them in names, tags or metadata, and
+  `list({ labels })` always filters exactly.
 
 ### Add your own
 
@@ -197,9 +213,9 @@ time. open-sb focuses on running a fleet across providers:
 
 ## Status
 
-Early. The interface may still change before 1.0. Docker and Agent37 pass the conformance suite against the
-real services, and Boat passes 7 of 11 tests (the rest need a key with more permissions). E2B, Daytona, Vercel Sandbox and Modal are built against their official SDKs and
-unit-tested, and their first live conformance runs are next.
+Early. The interface may still change before 1.0. Every provider is built against its official SDK or API and
+has unit tests. Docker and Agent37 pass the live conformance suite, and Boat passes 7 of 11 tests (the rest need
+a key with more permissions). The other 14 have their live runs next; the table above shows where each stands.
 The package is not on npm yet: it ships TypeScript sources, and a JavaScript build comes with the first release.
 
 ## Development
@@ -210,14 +226,10 @@ Node 22.18 or later runs the TypeScript directly.
 pnpm install
 pnpm run check         # types
 pnpm test              # unit tests, no services needed
-pnpm run test:docker   # conformance against local Docker
-pnpm run test:boat     # needs BOAT_API_KEY, creates real VMs
-pnpm run test:agent37  # needs AGENT37_API_KEY, creates real VMs
-pnpm run test:e2b      # needs E2B_API_KEY
-pnpm run test:daytona  # needs DAYTONA_API_KEY
-pnpm run test:vercel   # needs VERCEL_TOKEN, VERCEL_TEAM_ID and VERCEL_PROJECT_ID
-pnpm run test:modal    # needs MODAL_TOKEN_ID and MODAL_TOKEN_SECRET
-node scripts/graphic.ts  # redraws assets/providers.svg from the providers' capabilities
+pnpm run test:docker     # live conformance against local Docker, no account needed
+pnpm run test:e2b        # any provider: creates real sandboxes; the key it needs is named at the
+                         # top of test/<provider>.conformance.ts
+pnpm run graphic         # redraws assets/providers.svg from the providers' capabilities
 ```
 
 ## License
