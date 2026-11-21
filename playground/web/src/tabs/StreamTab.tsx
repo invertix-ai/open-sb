@@ -1,10 +1,11 @@
 // Live stream: a live lag chart across providers, a lag comparison, and per provider a live terminal with the
 // lines as they arrive (with a Follow switch), plus the port 8080 page and the desktop viewer embedded when the
 // provider has them and they open without credentials.
-import { Globe, MonitorPlay } from "lucide-react";
+import { Globe } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { ComparisonBars, LagChart } from "@/components/charts";
 import { LivePreview } from "@/components/LivePreview";
+import { LiveDesktop } from "@/components/LiveDesktop";
 import { TerminalFrame } from "@/components/LiveTerminal";
 import { CounterStat, ProviderCard } from "@/components/ProviderCard";
 import { ChartCard, Field, TestLayout, Waiting } from "@/components/TestLayout";
@@ -70,7 +71,7 @@ export function StreamTab() {
               </>
             )}
             {(run.lines.length > 0 || run.status === "running") && <Terminal lines={run.lines} run={run} title={`tail -f stream.log @ ${store.provider(module)?.title ?? module}`} />}
-            {run.desktop && <LivePreview title="Desktop" icon={<MonitorPlay />} url={run.desktop.url} live={live} />}
+            {run.desktop && <LiveDesktop key={run.desktop.sandboxId} connection={run.desktop} live={live} onReconnect={() => store.reconnectDesktop("stream", module)} />}
             {run.link && <LivePreview title={`Port ${run.link.port}`} icon={<Globe />} url={run.link.url} live={live} />}
           </ProviderCard>
         );

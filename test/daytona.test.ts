@@ -9,6 +9,8 @@ test("daytona maps labels, states, exec results and failures", async () => {
   const commands: string[] = [];
   const ttls: number[] = [];
   const sessions = new Set<string>();
+  const desktopStarts: string[] = [];
+  const signedPreviews: { port: number; seconds?: number }[] = [];
   const sandboxes = new Map<string, DaytonaSandbox>();
   const fake = (id: string, state: string, labels: Record<string, string>, sandboxName = id): DaytonaSandbox => {
     const sandbox: DaytonaSandbox = {
@@ -19,6 +21,11 @@ test("daytona maps labels, states, exec results and failures", async () => {
       async createSnapshot() {},
       async setTtl(minutes) { sandbox.autoDestroyAt = new Date(Date.now() + minutes * 60_000).toISOString(); ttls.push(minutes); },
       async getPreviewLink(port) { return { url: `https://${port}-${id}.proxy.daytona.works`, token: "preview-token" }; },
+      async getSignedPreviewUrl(port, seconds) {
+        signedPreviews.push({ port, seconds });
+        return { url: `https://${port}-signed-${signedPreviews.length}.proxy.daytona.works` };
+      },
+      computerUse: { async start() { desktopStarts.push(id); } },
       fs: { async createFolder() {}, async uploadFile() {}, async downloadFile() { return Buffer.from("x"); } },
       process: {
         async createSession(session) { sessions.add(session); },
@@ -85,6 +92,23 @@ test("daytona maps labels, states, exec results and failures", async () => {
 
   assert.deepEqual(await provider.portUrl("a", 8080),
     { url: "https://8080-a.proxy.daytona.works", headers: { "X-Daytona-Preview-Token": "preview-token" } });
+  const beforeDesktop = Date.now();
+  const viewer = await provider.desktop("a");
+  assert.ok("url" in viewer);
+  assert.ok(viewer.websocketUrl);
+  assert.ok(viewer.expiresAt);
+  assert.equal(new URL(viewer.url).pathname, "/vnc.html");
+  assert.equal(new URL(viewer.websocketUrl).protocol, "wss:");
+  assert.equal(new URL(viewer.websocketUrl).hostname, new URL(viewer.url).hostname, "viewer assets and websocket use the same signed access");
+  assert.equal(new URL(viewer.url).searchParams.get("view_only"), "true");
+  assert.ok(viewer.expiresAt.getTime() >= beforeDesktop + 3600_000);
+  assert.ok(viewer.expiresAt.getTime() <= Date.now() + 3600_000);
+  const renewed = await provider.desktop("a");
+  assert.ok("url" in renewed);
+  assert.notEqual(renewed.websocketUrl, viewer.websocketUrl, "reconnect obtains fresh signed access");
+  assert.deepEqual(signedPreviews, [{ port: 6080, seconds: 3600 }, { port: 6080, seconds: 3600 }]);
+  await assert.rejects(provider.desktop("b"), (error: unknown) => error instanceof SandboxError && error.kind === "rejected");
+  assert.deepEqual(desktopStarts, ["a", "a"], "viewing a stopped sandbox does not resume it or start its desktop");
   assert.deepEqual(await provider.listSnapshots(), ["mine", "mine-2"]);
   await provider.deleteSnapshot("missing");
 
@@ -105,4 +129,9 @@ test("daytona maps labels, states, exec results and failures", async () => {
   const controller = new AbortController();
   controller.abort(new Error("caller gave up"));
   await assert.rejects(provider.get("a", { signal: controller.signal }), /caller gave up/);
+});
+
+test("daytona desktop access must have a bounded credential lifetime", () => {
+  for (const value of [0, 59, 86401, NaN, Infinity, 60.5])
+    assert.throws(() => daytona({ desktopExpiresInSeconds: value }), /desktopExpiresInSeconds/);
 });

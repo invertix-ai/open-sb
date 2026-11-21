@@ -3,7 +3,7 @@
 // happens (model text, commands and their output, files written, the verify result), with the sandbox's
 // desktop and the HTTP task's port 8080 embedded beside it when the provider offers them without credentials.
 import { Fragment } from "react";
-import { Check, FilePen, Globe, KeyRound, Loader2, MonitorPlay, ShieldAlert, Square, X } from "lucide-react";
+import { Check, FilePen, Globe, KeyRound, Loader2, ShieldAlert, Square, X } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSepa
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ComparisonBars, TokenBars } from "@/components/charts";
 import { LivePreview } from "@/components/LivePreview";
+import { LiveDesktop } from "@/components/LiveDesktop";
 import { OutputBlock, TerminalFrame } from "@/components/LiveTerminal";
 import { CounterStat, ProviderCard, Stat } from "@/components/ProviderCard";
 import { ContextMeter } from "@/bencho/context-meter/ContextMeter";
@@ -228,7 +229,7 @@ export function AgentTab() {
             </div>
             <TokenMeter sum={sum} />
             <AgentTerminal run={run} title={`${view.options.model as string} @ ${store.provider(module)?.title ?? module}`} />
-            {run.desktop && <LivePreview title="Desktop" icon={<MonitorPlay />} url={run.desktop.url} live={open(run.desktop.task)} />}
+            {run.desktop && <LiveDesktop key={run.desktop.sandboxId} connection={run.desktop} live={open(run.desktop.task)} onReconnect={() => store.reconnectDesktop("agent", module)} />}
             {run.link && <LivePreview title={`Port ${run.link.port}`} icon={<Globe />} url={run.link.url} live={open(run.link.task)} />}
           </ProviderCard>
         );

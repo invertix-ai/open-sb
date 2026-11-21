@@ -33,11 +33,12 @@ export function ChartCard({ title, hint, children, className }: { title: ReactNo
   );
 }
 
-export function TestLayout({ test, options, summary, card }: {
+export function TestLayout({ test, options, summary, card, gridClassName }: {
   test: TestId;
   options: ReactNode;
   summary?: (view: View) => ReactNode;
   card: (view: View, module: string) => ReactNode;
+  gridClassName?: string;
 }) {
   const store = useStore();
   const view = store.views[test];
@@ -58,7 +59,7 @@ export function TestLayout({ test, options, summary, card }: {
         <>
           {view.error && <Alert variant="destructive"><AlertTitle className="font-mono text-xs uppercase">{view.error.kind}</AlertTitle><AlertDescription>{view.error.message}</AlertDescription></Alert>}
           {summary?.(view)}
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,340px),1fr))] gap-4">
+          <div className={cn("grid grid-cols-[repeat(auto-fill,minmax(min(100%,340px),1fr))] gap-4", gridClassName)}>
             {view.providers.map(module => <div key={module} className="min-w-0">{card(view, module)}</div>)}
           </div>
         </>

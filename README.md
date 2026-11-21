@@ -92,7 +92,7 @@ snapshot         yes  yes
 ttl              yes  -
 ports            yes  yes
 ssh              -    -
-desktop          -    -
+desktop          -    yes
 background*      yes  yes
 persistentDisk*  yes  yes
 (* required)
@@ -122,7 +122,7 @@ Optional capabilities:
 | `ttl` | `setTtl` | The provider ends the sandbox on its own (stops or deletes it, per provider); `get()` reports `expiresAt` |
 | `ports` | `portUrl` | A private HTTPS address for a port inside the sandbox |
 | `ssh` | `ssh` | An SSH endpoint and host key for a public key you supply |
-| `desktop` | `desktop` | A viewer URL for a graphical desktop |
+| `desktop` | `desktop` | A viewer URL, optionally a live RFB WebSocket and expiry, for a graphical desktop |
 | `background` | `startBackground` | A process that keeps running after the call returns |
 
 Every failure is a `SandboxError` with a `kind`: `unavailable` (an outage, so failover moves on), `not_found`,
@@ -133,7 +133,7 @@ Every failure is a `SandboxError` with a `kind`: `unavailable` (an outage, so fa
 | Provider | Import | Install | Capabilities | Live conformance |
 | --- | --- | --- | --- | --- |
 | [E2B](https://e2b.dev) | `@invertix/open-sb/e2b` | `e2b` | pause, persistentDisk, snapshot, ttl, ports, background | not run yet |
-| [Daytona](https://daytona.io) | `@invertix/open-sb/daytona` | `@daytonaio/sdk` | pause, persistentDisk, snapshot, ttl, ports, background | not run yet |
+| [Daytona](https://daytona.io) | `@invertix/open-sb/daytona` | `@daytonaio/sdk` | pause, persistentDisk, snapshot, ttl, ports, desktop, background | desktop verified; full suite pending |
 | [Vercel Sandbox](https://vercel.com/docs/vercel-sandbox) | `@invertix/open-sb/vercel` | `@vercel/sandbox` | pause, persistentDisk, ttl, ports, background | not run yet |
 | [Modal](https://modal.com) | `@invertix/open-sb/modal` | `modal` | snapshot, ports, background | not run yet |
 | [Fly Sprites](https://sprites.dev) | `@invertix/open-sb/sprites` | `@fly/sprites` (Node 24+) | background | not run yet |
@@ -220,6 +220,9 @@ them, each in its own column:
 
 - **Speed:** create, first command, command round trips, a 1 MiB file write and read, pause, resume, destroy.
 - **Live stream:** a background process prints a line every 200 ms; see how fast lines arrive from each provider.
+- **Desktop:** an embedded live desktop with connection status, fullscreen, reconnect and optional mouse and
+  keyboard control. Daytona streams over a signed VNC WebSocket; viewer-only providers use an iframe.
+  Sessions default to 10 minutes and clean up their sandboxes when stopped or expired.
 - **Agent:** a Claude or OpenAI agent works through tasks inside each sandbox (code and tests, an HTTP server,
   git, data analysis on a 200k-row CSV, a headless browser, a PDF report and chart, ffmpeg, a webhook
   service), and a check afterwards says whether it passed, with time, turns, tokens and cost. A live terminal
@@ -251,12 +254,25 @@ creates many sandboxes at once and the workloads fork section several, so they a
 Third-party code: six blocks from [Bencho](https://github.com/cabralorenzo/bencho) (MIT) in
 `playground/web/src/bencho/`, with its licence: Slide to confirm, Rolling counter, Context meter, Checklist,
 Dynamic island and Label input. They are modified to take real data (each change is marked "open-sb change").
+The desktop viewer loads [noVNC](https://github.com/novnc/noVNC) (MPL-2.0) on demand.
+
+### Daytona desktop
+
+Use a default Daytona snapshot, add `DAYTONA_API_KEY` through the playground or environment, select Daytona,
+and open **Desktop → Start desktop**. The optional demo opens a clock and input test in the sandbox's browser
+so you can see changing pixels and test control. The Live stream and Agent tabs also show Daytona desktops.
+
+`daytona().desktop(id)` starts Computer Use and returns a `DesktopConnection` with `url`, `websocketUrl` and
+`expiresAt`. These URLs contain expiring access credentials; pass them only to authorized viewers. The API key
+stays on the server. Call `desktop(id)` again to renew access; the playground does this for reconnects and before
+expiry. Custom images need the desktop packages installed. See [setup, protocol and live verification](docs/daytona-desktop.md).
 
 ## Status
 
 Early. The interface may still change before 1.0. Every provider is built against its official SDK or API and
 has unit tests. Docker and Agent37 pass the live conformance suite, and Boat passes 7 of 11 tests (the rest need
 a key with more permissions). The other 14 have their live runs next; the table above shows where each stands.
+Daytona's desktop streaming, input, reconnect and pause/resume have also been verified with real sandboxes locally.
 The package is not on npm yet: it ships TypeScript sources, and a JavaScript build comes with the first release.
 
 ## Development
