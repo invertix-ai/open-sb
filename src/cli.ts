@@ -4,7 +4,7 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { CAPABILITIES, checkConfig, type Config } from "../src/index.ts";
+import { CAPABILITIES, checkConfig, type Config } from "./index.ts";
 
 const [command = "check", file] = process.argv.slice(2);
 if (command !== "check" || file === "--help") {

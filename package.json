@@ -94,11 +94,10 @@
     }
   },
   "bin": {
-    "open-sb": "./bin/open-sb.ts"
+    "open-sb": "./dist/cli.js"
   },
   "files": [
     "dist",
-    "bin",
     "README.md",
     "LICENSE"
   ],
@@ -127,7 +126,8 @@
     "test:upstash": "node --test test/upstash.conformance.ts",
     "test:vercel": "node --test test/vercel.conformance.ts",
     "build": "tsc -p tsconfig.build.json",
-    "bundle": "rm -rf dist && pnpm run build && pnpm pack"
+    "bundle": "rm -rf dist && pnpm run build && pnpm pack",
+    "test:pack": "sh scripts/pack-smoke.sh"
   },
   "peerDependencies": {
     "@beamcloud/beam-js": ">=1.1.6",

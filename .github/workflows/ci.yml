@@ -12,14 +12,15 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm run check
       - run: pnpm test
       - run: pnpm run test:docker
+      - run: pnpm run test:pack
   cloud-conformance:
     # Real VMs cost money: only on request.
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.providers != ''
@@ -28,11 +29,11 @@ jobs:
       fail-fast: false
       matrix: { provider: [agent37, beam, blaxel, boat, codesandbox, daytona, e2b, fly, freestyle, hopx, modal, morph, runloop, sprites, upstash, vercel] }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         if: (github.event.inputs.providers == 'all' || contains(format(' {0} ', github.event.inputs.providers), format(' {0} ', matrix.provider)))
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         if: (github.event.inputs.providers == 'all' || contains(format(' {0} ', github.event.inputs.providers), format(' {0} ', matrix.provider)))
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         if: (github.event.inputs.providers == 'all' || contains(format(' {0} ', github.event.inputs.providers), format(' {0} ', matrix.provider)))
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile --ignore-scripts && pnpm run test:${{ matrix.provider }}
@@ -61,40 +62,47 @@ jobs:
           VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
   publish:
-    # Every push to main publishes @invertix/open-sb to npm, so consumers pick it up through their
-    # dependency bots. The version in package.json is the floor: when it is already on npm, the next
-    # patch is published instead, so routine changes need no version bump and minors stay manual.
+    # Every push to main that changes what ships publishes @invertix/open-sb to npm, so consumers pick it
+    # up through their dependency bots. package.json's version is the floor; when npm already has it, the
+    # next patch is published (scripts/next-version.ts), so routine changes need no bump and minors stay
+    # manual. Each publish is tagged vX.Y.Z; a push that changes nothing shipped since the last tag is skipped.
     needs: check
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     concurrency: { group: npm-publish, cancel-in-progress: false }
-    permissions: { contents: read, id-token: write }
+    permissions: { contents: write, id-token: write }
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { fetch-depth: 0 }
+      - name: Anything to ship?
+        id: changes
+        run: |
+          last=$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)
+          if [ -n "$last" ] && git diff --quiet "$last" HEAD -- src package.json tsconfig.json tsconfig.build.json README.md LICENSE; then
+            echo "Nothing shipped changed since $last; not publishing."
+            echo "ship=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ship=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        if: steps.changes.outputs.ship == 'true'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        if: steps.changes.outputs.ship == 'true'
         with: { node-version: 24, cache: pnpm, registry-url: "https://registry.npmjs.org" }
       - run: pnpm install --frozen-lockfile --ignore-scripts
+        if: steps.changes.outputs.ship == 'true'
       - name: Pick the version
-        run: |
-          published=$(npm view @invertix/open-sb version 2>/dev/null || true)
-          node -e '
-            const fs = require("node:fs");
-            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
-            const parse = (v) => v.split(".").map(Number);
-            const published = process.argv[1];
-            let next = pkg.version;
-            if (published) {
-              const [a, b, c] = parse(published);
-              const bumped = `${a}.${b}.${c + 1}`;
-              const cmp = (x, y) => { const p = parse(x), q = parse(y); for (let i = 0; i < 3; i++) if (p[i] !== q[i]) return p[i] - q[i]; return 0; };
-              if (cmp(next, published) <= 0) next = bumped;
-            }
-            pkg.version = next;
-            fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
-            console.log(`publishing ${next} (npm has ${published || "nothing"})`);
-          ' "$published"
+        id: version
+        if: steps.changes.outputs.ship == 'true'
+        run: echo "version=$(node scripts/next-version.ts)" >> "$GITHUB_OUTPUT"
       - run: rm -rf dist && pnpm run build
+        if: steps.changes.outputs.ship == 'true'
       # Trusted publishing (OIDC) once it is set up on npmjs.com; NPM_TOKEN only bootstraps it.
       - run: npm publish
+        if: steps.changes.outputs.ship == 'true'
         env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" }
+      - name: Tag the release
+        if: steps.changes.outputs.ship == 'true'
+        run: |
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}"
