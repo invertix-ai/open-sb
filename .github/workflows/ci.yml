@@ -60,3 +60,41 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+  publish:
+    # Every push to main publishes @invertix/open-sb to npm, so consumers pick it up through their
+    # dependency bots. The version in package.json is the floor: when it is already on npm, the next
+    # patch is published instead, so routine changes need no version bump and minors stay manual.
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency: { group: npm-publish, cancel-in-progress: false }
+    permissions: { contents: read, id-token: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm, registry-url: "https://registry.npmjs.org" }
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Pick the version
+        run: |
+          published=$(npm view @invertix/open-sb version 2>/dev/null || true)
+          node -e '
+            const fs = require("node:fs");
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            const parse = (v) => v.split(".").map(Number);
+            const published = process.argv[1];
+            let next = pkg.version;
+            if (published) {
+              const [a, b, c] = parse(published);
+              const bumped = `${a}.${b}.${c + 1}`;
+              const cmp = (x, y) => { const p = parse(x), q = parse(y); for (let i = 0; i < 3; i++) if (p[i] !== q[i]) return p[i] - q[i]; return 0; };
+              if (cmp(next, published) <= 0) next = bumped;
+            }
+            pkg.version = next;
+            fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
+            console.log(`publishing ${next} (npm has ${published || "nothing"})`);
+          ' "$published"
+      - run: rm -rf dist && pnpm run build
+      # Trusted publishing (OIDC) once it is set up on npmjs.com; NPM_TOKEN only bootstraps it.
+      - run: npm publish
+        env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" }

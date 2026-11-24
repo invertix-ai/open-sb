@@ -3,6 +3,14 @@
   "version": "0.1.0",
   "description": "One TypeScript interface for agent sandboxes across 17 providers, with capabilities checked at type-check time, at startup and in CI.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/invertix-ai/open-sb.git"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "type": "module",
   "engines": {
     "node": ">=22.18"
